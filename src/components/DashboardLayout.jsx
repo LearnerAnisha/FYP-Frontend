@@ -2,14 +2,14 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { 
-  Sprout, 
-  Menu, 
-  LayoutDashboard, 
-  Scan, 
-  CloudRain, 
-  TrendingUp, 
-  MessageSquare, 
+import {
+  Sprout,
+  Menu,
+  LayoutDashboard,
+  Scan,
+  CloudRain,
+  TrendingUp,
+  MessageSquare,
   LogOut,
   User
 } from "lucide-react";
@@ -55,11 +55,10 @@ export const DashboardLayout = ({ children }) => {
               key={item.name}
               to={item.href}
               onClick={() => setIsOpen(false)}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth ${
-                isActive
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth ${isActive
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                }`}
             >
               <Icon className="w-5 h-5" />
               <span className="font-medium">{item.name}</span>
@@ -67,27 +66,33 @@ export const DashboardLayout = ({ children }) => {
           );
         })}
       </nav>
-
-      {/* User Profile */}
-      <div className="p-4 border-t border-border">
-        <div className="flex items-center gap-3 p-3 rounded-lg bg-muted">
-          <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-            <User className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-medium text-foreground text-sm truncate">Ram Sharma</p>
-            <p className="text-xs text-muted-foreground truncate">Farmer</p>
-          </div>
+      
+      {/* Profile */}
+      <div className="p-4 border-t border-border flex flex-col gap-2">
+        {/* Profile Button (same style as other nav items) */}
+        <div
+          onClick={() => navigate("/profile")}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-smooth cursor-pointer
+      ${location.pathname === "/profile"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:bg-muted hover:text-foreground"
+            }`}
+        >
+          <User className="w-5 h-5" />
+          <span className="font-medium">Profile</span>
         </div>
+
+        {/* Logout */}
         <Button
           variant="ghost"
           onClick={handleLogout}
-          className="w-full mt-2 justify-start text-muted-foreground hover:text-destructive"
+          className="w-full justify-start px-4 py-3 text-muted-foreground hover:text-destructive"
         >
           <LogOut className="w-4 h-4 mr-2" />
           Logout
         </Button>
       </div>
+
     </div>
   );
 

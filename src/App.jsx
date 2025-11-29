@@ -7,6 +7,7 @@ import WeatherIrrigation from "@/pages/WeatherIrrigation";
 import PricePredictor from "@/pages/PricePredictor";
 import ChatbotPage from "@/pages/ChatbotPage";
 import AuthPage from "@/pages/AuthPage";
+import ProfilePage from "@/pages/ProfilePage";
 import { Toaster } from "@/components/ui/sonner";
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="/weather-irrigation" element={<WeatherIrrigation />} />
           <Route path="/price-predictor" element={<PricePredictor />} />
           <Route path="/chatbot" element={<ChatbotPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Routes>
       </BrowserRouter>
       <Toaster />
