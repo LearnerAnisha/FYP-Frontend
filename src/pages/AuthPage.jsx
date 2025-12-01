@@ -7,34 +7,76 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sprout, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { registerUser, loginUser } from "@/api/auth";
+
 
 export default function AuthPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Login
   const handleSignIn = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Mock authentication
-    setTimeout(() => {
-      setIsLoading(false);
+
+    const identifier = document.getElementById("signin-email").value;
+    const password = document.getElementById("signin-password").value;
+
+    try {
+      const res = await loginUser({ identifier, password });
+
+      // If backend returns user data, you can store:
+      localStorage.setItem("user", JSON.stringify(res.data));
+
       toast.success("Welcome back!");
       navigate("/dashboard");
-    }, 1500);
+    } catch (error) {
+      const msg =
+        error.response?.data?.non_field_errors ||
+        error.response?.data?.detail ||
+        "Invalid login credentials!";
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+
+  // Register
   const handleSignUp = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Mock registration
-    setTimeout(() => {
-      setIsLoading(false);
+
+    const full_name = document.getElementById("signup-name").value;
+    const email = document.getElementById("signup-email").value;
+    const phone = document.getElementById("signup-phone").value;
+    const password = document.getElementById("signup-password").value;
+    const accepted_terms = e.target.querySelector("input[type='checkbox']").checked;
+
+    try {
+      const res = await registerUser({
+        full_name,
+        email,
+        phone,
+        password,
+        accepted_terms,
+      });
+
       toast.success("Account created successfully!");
       navigate("/dashboard");
-    }, 1500);
+    } catch (error) {
+      const msg =
+        error.response?.data?.non_field_errors ||
+        error.response?.data?.email ||
+        error.response?.data?.phone ||
+        error.response?.data?.password ||
+        "Registration failed!";
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-subtle p-4">
