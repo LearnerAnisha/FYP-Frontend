@@ -40,9 +40,9 @@ import {
 import { getMarketPrices, getMarketAnalysis } from "@/api/market";
 
 
-/* ==========================================================================
+/* 
    STATIC AI PREDICTION DATA (Only "current" price replaced with real value)
-   ========================================================================== */
+*/
 const basePredictionData = {
   tomato: {
     previous: 78,
@@ -89,9 +89,9 @@ const basePredictionData = {
 
 
 
-/* ==========================================================================
+/* 
    MAIN COMPONENT
-   ========================================================================== */
+*/
 
 export default function PricePredictor() {
   const [selectedCrop, setSelectedCrop] = useState("tomato");
@@ -103,9 +103,9 @@ export default function PricePredictor() {
   const [error, setError] = useState(null);
 
 
-  /* --------------------------------------------------------------------------
+  /* 
      FETCH TODAY'S PRICES + ANALYSIS DATA
-     -------------------------------------------------------------------------- */
+  */
   useEffect(() => {
     async function load() {
       try {
@@ -131,9 +131,9 @@ export default function PricePredictor() {
 
 
 
-  /* --------------------------------------------------------------------------
+  /* 
      MATCH SELECTED CROP TO REAL MARKET PRICE
-     -------------------------------------------------------------------------- */
+  */
   const NAME_MATCH = {
     tomato: ["Tomato", "Tomato Small", "Tomato Big", "Tomato Local"],
     potato: ["Potato", "Potato Red", "Potato White"],
@@ -146,7 +146,7 @@ export default function PricePredictor() {
     const names = NAME_MATCH[selectedCrop];
 
     return (
-      analysis.commodity_changes.find(change =>
+      analysis.changes.find(change =>
         names.some(n =>
           change.commodity.toLowerCase().includes(n.toLowerCase())
         )
@@ -163,11 +163,11 @@ export default function PricePredictor() {
 
 
 
-  /* --------------------------------------------------------------------------
+  /* 
      LIVE MARKET TABLE DATA
-     -------------------------------------------------------------------------- */
+  */
   const marketRows =
-    analysis?.commodity_changes?.map(item => ({
+    analysis?.changes?.map(item => ({
       name: item.commodity,
       price: item.today,
       change: item.change_percentage,
@@ -177,9 +177,9 @@ export default function PricePredictor() {
 
 
 
-  /* ==========================================================================
+  /* 
      RENDER UI
-     ========================================================================== */
+   */
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -212,7 +212,7 @@ export default function PricePredictor() {
               {
                 label: "Today's Avg Price",
                 value: (() => {
-                  const items = analysis.commodity_changes;
+                  const items = analysis.changes;
                   if (!items?.length) return "N/A";
                   const avg =
                     items.reduce((sum, item) => sum + item.today, 0) /
@@ -228,7 +228,7 @@ export default function PricePredictor() {
               },
               {
                 label: "Active Commodities",
-                value: analysis.commodity_changes.length,
+                value: analysis.changes.length,
                 icon: BarChart3
               },
               {
@@ -263,9 +263,9 @@ export default function PricePredictor() {
 
 
 
-          {/* ================================================================
+          {/*
               LIVE MARKET TAB
-              ================================================================ */}
+           */}
           <TabsContent value="market" className="space-y-6">
             <Card>
               <CardHeader>
@@ -322,9 +322,9 @@ export default function PricePredictor() {
 
 
 
-          {/* ================================================================
+          {/*
               PRICE PREDICTOR TAB
-              ================================================================ */}
+          */}
           <TabsContent value="predictor" className="space-y-6">
 
             {/* CROP SELECTOR */}

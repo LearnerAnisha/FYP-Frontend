@@ -4,7 +4,7 @@ import apiClient from "./client";
  * Fetch today's stored market prices.
  */
 export async function getMarketPrices() {
-  const response = await apiClient.get("/api/market/prices/");
+  const response = await apiClient.get("/api/market/latest/");
   return response.data;
 }
 
