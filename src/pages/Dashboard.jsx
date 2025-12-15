@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,9 +15,19 @@ import {
   Clock,
   Leaf
 } from "lucide-react";
+import { saveCityFromLocation } from "@/utils/locationToCity";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+
+    useEffect(() => {
+    const city = localStorage.getItem("user_city");
+
+    // Ask for location ONLY if city not already saved
+    if (!city) {
+      saveCityFromLocation();
+    }
+  }, []);
 
   const quickActions = [
     {
