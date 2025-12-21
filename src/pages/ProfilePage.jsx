@@ -1,4 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { fetchProfile, updateProfile, changePassword, deleteAccount } from "@/api/profile";
+import { saveCityFromLocation } from "@/utils/locationToCity";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -44,16 +46,16 @@ import {
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
-    fullName: "Ram Bahadur Sharma",
-    email: "ram.sharma@example.com",
-    phone: "+977 9812345678",
-    location: "Chitwan, Nepal",
-    farmSize: "2.5",
-    cropTypes: "Rice, Wheat, Maize",
-    experience: "10",
-    bio: "Experienced farmer focusing on organic farming methods and sustainable agriculture practices.",
+    fullName: "",
+    email: "",
+    phone: "",
+    location: "",
+    farmSize: "",
+    cropTypes: "",
+    experience: "",
+    bio: "",
     language: "nepali",
-    joinDate: "January 2024"
+    joinDate: ""
   });
 
   const [notifications, setNotifications] = useState({
@@ -71,43 +73,91 @@ export default function ProfilePage() {
     confirm: ""
   });
 
-  const handleProfileUpdate = (e) => {
+  // Profilepage
+  useEffect(() => {
+    async function loadProfile() {
+      try {
+        // 1. Get city (async)
+        const city = await saveCityFromLocation();
+
+        // 2. Fetch profile from backend
+        const data = await fetchProfile();
+
+        // 3. Update state
+        setProfileData((prev) => ({
+          ...prev,
+          fullName: data.full_name,
+          email: data.email,
+          phone: data.phone || "",
+          location: city || localStorage.getItem("user_city") || "",
+          joinDate: new Date(data.date_joined).toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
+          }),
+          activeDays: data.active_days,
+        }));
+      } catch (err) {
+        console.error("Profile load error:", err);
+        toast.error("Failed to load profile");
+      }
+    }
+
+    loadProfile();
+  }, []);
+
+
+  const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    // Mock API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      await updateProfile({
+        full_name: profileData.fullName,
+        phone: profileData.phone,
+        bio: profileData.bio,
+        language: profileData.language,
+      });
+
       toast.success("Profile updated successfully!");
-    }, 1500);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to update profile"
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handlePasswordChange = (e) => {
+  const handlePasswordChange = async (e) => {
     e.preventDefault();
-    
+
     if (passwords.new !== passwords.confirm) {
       toast.error("New passwords don't match!");
       return;
     }
-    
-    if (passwords.new.length < 8) {
-      toast.error("Password must be at least 8 characters!");
-      return;
-    }
-    
+
     setIsLoading(true);
-    
-    // Mock API call
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      await changePassword({
+        current: passwords.current,
+        new: passwords.new,
+      });
+
       toast.success("Password changed successfully!");
       setPasswords({ current: "", new: "", confirm: "" });
-    }, 1500);
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Password update failed"
+      );
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleNotificationUpdate = () => {
     setIsLoading(true);
-    
+
     // Mock API call
     setTimeout(() => {
       setIsLoading(false);
@@ -119,20 +169,35 @@ export default function ProfilePage() {
     toast.success("Preparing your data export... You'll receive an email shortly.");
   };
 
-  const handleDeleteAccount = () => {
-    toast.error("Account deletion initiated. You'll receive a confirmation email.");
-  };
-
-  const handleImageUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      toast.success("Profile picture updated successfully!");
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      localStorage.clear();
+      window.location.href = "/auth";
+    } catch {
+      toast.error("Failed to delete account");
     }
   };
 
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append("avatar", file);
+
+    try {
+      await updateProfile(formData);
+      toast.success("Profile picture updated!");
+    } catch {
+      toast.error("Avatar upload failed");
+    }
+  };
+
+
   const stats = [
     { label: "Total Scans", value: "156", icon: CheckCircle2, color: "text-primary" },
-    { label: "Active Days", value: "89", icon: Calendar, color: "text-chart-4" },
+    { label: "Active Days", value: profileData.activeDays || 0, icon: Calendar },
     { label: "Saved Reports", value: "24", icon: Download, color: "text-accent" },
     { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" }
   ];
@@ -175,7 +240,7 @@ export default function ProfilePage() {
                   className="hidden"
                 />
               </div>
-              
+
               <div className="flex-1 text-center sm:text-left">
                 <h2 className="text-2xl font-display font-bold text-foreground mb-2">
                   {profileData.fullName}
@@ -192,7 +257,7 @@ export default function ProfilePage() {
                   </Badge>
                 </div>
               </div>
-              
+
               <div className="flex gap-2">
                 <Button variant="outline" onClick={handleExportData}>
                   <Download className="w-4 h-4 mr-2" />

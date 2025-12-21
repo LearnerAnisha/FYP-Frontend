@@ -1,34 +1,34 @@
-// Converts browser location → city name
+// utils/locationToCity.js
 export async function saveCityFromLocation() {
-  if (!navigator.geolocation) return;
+  if (!navigator.geolocation) return null;
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      const lat = position.coords.latitude;
-      const lon = position.coords.longitude;
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lon = position.coords.longitude;
 
-      const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
+        const API_KEY = import.meta.env.VITE_OPENWEATHER_API_KEY;
 
-      try {
-        const res = await fetch(
-          `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
-        );
+        try {
+          const res = await fetch(
+            `https://api.openweathermap.org/geo/1.0/reverse?lat=${lat}&lon=${lon}&limit=1&appid=${API_KEY}`
+          );
 
-        const data = await res.json();
+          const data = await res.json();
+          const city = data?.[0]?.name;
 
-        const city = data?.[0]?.name;
-
-        if (city) {
-          // Store ONLY city
-          localStorage.setItem("user_city", city);
+          if (city) {
+            localStorage.setItem("user_city", city);
+            resolve(city); // ✅ RETURN city
+          } else {
+            resolve(null);
+          }
+        } catch {
+          resolve(null);
         }
-      } catch (err) {
-        console.log("Failed to get city");
-      }
-    },
-    () => {
-      // User denied → do nothing
-      console.log("Location denied");
-    }
-  );
+      },
+      () => resolve(null) // user denied location
+    );
+  });
 }
