@@ -14,7 +14,18 @@ export async function fetchProfile() {
  * PUT /api/profile/
  */
 export async function updateProfile(data) {
-  const response = await apiClient.put("/api/auth/profile/", data);
+  const isFormData = data instanceof FormData;
+
+  const response = await apiClient.patch(
+    "/api/auth/profile/",
+    data,
+    {
+      headers: isFormData
+        ? { "Content-Type": "multipart/form-data" }
+        : { "Content-Type": "application/json" },
+    }
+  );
+
   return response.data;
 }
 

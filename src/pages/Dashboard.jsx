@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,17 +16,33 @@ import {
   Leaf
 } from "lucide-react";
 import { saveCityFromLocation } from "@/utils/locationToCity";
+import { fetchProfile } from "@/api/profile";
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const [userName, setUserName] = useState("");
 
-    useEffect(() => {
-    const city = localStorage.getItem("user_city");
+  useEffect(() => {
+    async function loadDashboardData() {
+      try {
+        // Ask for location only once
+        const city = localStorage.getItem("user_city");
+        if (!city) {
+          await saveCityFromLocation();
+        }
 
-    // Ask for location ONLY if city not already saved
-    if (!city) {
-      saveCityFromLocation();
+        // Fetch user profile from backend
+        const profile = await fetchProfile();
+
+        // Extract first name
+        const firstName = profile.full_name?.split(" ")[0] || "";
+        setUserName(firstName);
+      } catch (error) {
+        console.error("Failed to load dashboard data", error);
+      }
     }
+
+    loadDashboardData();
   }, []);
 
   const quickActions = [
@@ -101,14 +117,14 @@ export default function Dashboard() {
         {/* Header */}
         <div>
           <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-2">
-            Welcome back, Ram!
+            Welcome back{userName ? `, ${userName}` : ""}!
           </h1>
           <p className="text-muted-foreground">
             Here's what's happening with your farm today.
           </p>
         </div>
 
-        {/* Stats Cards */}
+        {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, index) => (
             <Card key={index}>
@@ -145,16 +161,18 @@ export default function Dashboard() {
                   onClick={() => navigate(action.route)}
                 >
                   <CardContent className="p-6 space-y-4">
-                    <div className={`w-12 h-12 rounded-xl ${action.bgColor} flex items-center justify-center group-hover:scale-110 transition-smooth`}>
+                    <div className={`w-12 h-12 rounded-xl ${action.bgColor} flex items-center justify-center`}>
                       <Icon className={`w-6 h-6 ${action.color}`} />
                     </div>
                     <div>
                       <h3 className="font-display font-semibold text-foreground mb-1">
                         {action.title}
                       </h3>
-                      <p className="text-sm text-muted-foreground">{action.description}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {action.description}
+                      </p>
                     </div>
-                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-smooth" />
+                    <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary" />
                   </CardContent>
                 </Card>
               );
@@ -162,8 +180,8 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* Recent Activity & Tip */}
         <div className="grid lg:grid-cols-3 gap-6">
-          {/* Recent Activity */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
@@ -173,19 +191,14 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {recentActivities.map((activity, index) => {
                   const Icon = activity.icon;
-                  const iconColor = activity.type === "success" ? "text-success" : activity.type === "warning" ? "text-warning" : "text-chart-4";
-                  const bgColor = activity.type === "success" ? "bg-success/10" : activity.type === "warning" ? "bg-warning/10" : "bg-chart-4/10";
-                  
                   return (
-                    <div key={index} className="flex gap-4 p-4 rounded-lg bg-muted/50 hover:bg-muted transition-smooth">
-                      <div className={`w-10 h-10 rounded-lg ${bgColor} flex items-center justify-center flex-shrink-0`}>
-                        <Icon className={`w-5 h-5 ${iconColor}`} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-foreground mb-1">{activity.title}</h4>
+                    <div key={index} className="flex gap-4 p-4 rounded-lg bg-muted/50">
+                      <Icon className="w-5 h-5 text-primary" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{activity.title}</h4>
                         <p className="text-sm text-muted-foreground">{activity.description}</p>
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground flex-shrink-0">
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         {activity.time}
                       </div>
@@ -196,7 +209,6 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Quick Tips */}
           <Card className="bg-gradient-hero border-primary/20">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -204,15 +216,11 @@ export default function Dashboard() {
                 Today's Tip
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <p className="text-foreground leading-relaxed">
-                Monitor your crops for early signs of pest infestation. Early detection can save up to 40% of potential crop loss.
+            <CardContent>
+              <p className="mb-4">
+                Monitor crops for early signs of pests to prevent yield loss.
               </p>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => navigate("/chatbot")}
-              >
+              <Button variant="outline" onClick={() => navigate("/chatbot")}>
                 Learn More
                 <ArrowRight className="ml-2 w-4 h-4" />
               </Button>

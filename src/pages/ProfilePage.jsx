@@ -49,6 +49,7 @@ export default function ProfilePage() {
     fullName: "",
     email: "",
     phone: "",
+    avatar: null,
     location: "",
     farmSize: "",
     cropTypes: "",
@@ -89,6 +90,7 @@ export default function ProfilePage() {
           fullName: data.full_name,
           email: data.email,
           phone: data.phone || "",
+          avatar: data.avatar,
           location: city || localStorage.getItem("user_city") || "",
           joinDate: new Date(data.date_joined).toLocaleDateString("en-US", {
             month: "long",
@@ -187,13 +189,18 @@ export default function ProfilePage() {
     formData.append("avatar", file);
 
     try {
-      await updateProfile(formData);
+      const updated = await updateProfile(formData);
+
+      setProfileData((prev) => ({
+        ...prev,
+        avatar: updated.avatar,
+      }));
+
       toast.success("Profile picture updated!");
     } catch {
       toast.error("Avatar upload failed");
     }
   };
-
 
   const stats = [
     { label: "Total Scans", value: "156", icon: CheckCircle2, color: "text-primary" },
@@ -201,6 +208,11 @@ export default function ProfilePage() {
     { label: "Saved Reports", value: "24", icon: Download, color: "text-accent" },
     { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" }
   ];
+
+  // ✅ ADD HERE (only once)
+  const avatarSrc = profileData.avatar?.startsWith("http")
+    ? profileData.avatar
+    : `${import.meta.env.VITE_API_BASE_URL}${profileData.avatar}`;
 
   return (
     <DashboardLayout>
@@ -220,10 +232,22 @@ export default function ProfilePage() {
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
               <div className="relative">
-                <Avatar className="w-24 h-24 border-4 border-primary/20">
-                  <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=Ram" />
+                <Avatar className="w-24 h-24 border-4 border-primary/20 overflow-hidden">
+                  <AvatarImage
+                    src={avatarSrc}
+                    alt="Profile"
+                    className="object-cover w-full h-full"
+                  />
+
                   <AvatarFallback className="text-2xl font-bold bg-gradient-primary text-primary-foreground">
-                    RS
+                    {profileData.fullName
+                      ? profileData.fullName
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                      : "U"}
                   </AvatarFallback>
                 </Avatar>
                 <label
