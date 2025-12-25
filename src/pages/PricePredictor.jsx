@@ -175,8 +175,6 @@ export default function PricePredictor() {
       unit: "kg"
     })) || [];
 
-
-
   /* 
      RENDER UI
    */
@@ -258,6 +256,7 @@ export default function PricePredictor() {
         <Tabs defaultValue="market">
           <TabsList>
             <TabsTrigger value="market">Live Market</TabsTrigger>
+            <TabsTrigger value="latest">Master Product</TabsTrigger>
             <TabsTrigger value="predictor">Price Predictor</TabsTrigger>
           </TabsList>
 
@@ -320,6 +319,84 @@ export default function PricePredictor() {
             </Card>
           </TabsContent>
 
+          {/* ================= LATEST MARKET (NEW, SAME DESIGN) ================= */}
+          {/* ================= MASTER PRODUCT TAB ================= */}
+          <TabsContent value="latest">
+            <Card>
+              <CardHeader>
+                <CardTitle>Latest Market Prices</CardTitle>
+                <CardDescription>
+                  Complete commodity snapshot (Master Product data)
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-4">
+                {prices.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-4 rounded-lg bg-muted/50 space-y-3"
+                  >
+                    {/* HEADER */}
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10">
+                          <DollarSign className="w-5 h-5 text-primary" />
+                        </div>
+
+                        <div>
+                          <p className="font-semibold text-lg">
+                            {item.commodityname}
+                          </p>
+                          <p className="text-sm text-muted-foreground">
+                            Unit: {item.commodityunit}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right">
+                        <p className="text-xl font-bold">
+                          NPR {item.last_price ?? "N/A"}
+                        </p>
+                        <Badge variant="outline">
+                          Last Known Price
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* PRICE GRID */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Min Price</p>
+                        <p className="font-medium">NPR {item.min_price ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Max Price</p>
+                        <p className="font-medium">NPR {item.max_price ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Avg Price</p>
+                        <p className="font-medium">NPR {item.avg_price ?? "—"}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Last Price</p>
+                        <p className="font-medium">NPR {item.last_price ?? "—"}</p>
+                      </div>
+                    </div>
+
+                    {/* META */}
+                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                      <span>
+                        Inserted: <strong>{item.insert_date}</strong>
+                      </span>
+                      <span>
+                        Last Updated: <strong>{item.last_update}</strong>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </TabsContent>
 
 
           {/*
