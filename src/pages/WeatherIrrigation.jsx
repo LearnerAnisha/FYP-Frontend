@@ -1,3 +1,5 @@
+import { getCurrentWeather } from "@/api/weather";
+import { saveCityFromLocation } from "@/utils/locationToCity";
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -21,22 +23,76 @@ export default function WeatherIrrigation() {
   const [cropType, setCropType] = useState("rice");
   const [growthStage, setGrowthStage] = useState("vegetative");
   const [recommendations, setRecommendations] = useState(null);
+  const [realWeather, setRealWeather] = useState(null);
+  const [loadingWeather, setLoadingWeather] = useState(false);
+
+  // fetch from api 
+  useEffect(() => {
+    const loadWeather = async () => {
+      setLoadingWeather(true);
+
+      let city =
+        localStorage.getItem("user_city") ||
+        (await saveCityFromLocation()) ||
+        "Kathmandu";
+
+      const lat = localStorage.getItem("user_lat");
+      const lon = localStorage.getItem("user_lon");
+
+      const data = await getCurrentWeather({
+        city,
+        lat,
+        lon,
+      });
+      try {
+        const data = await getCurrentWeather(city);
+        console.log("WEATHER API RESPONSE:", data);
+
+        if (data.error) {
+          console.warn(data.message);
+        } else {
+          setRealWeather(data);
+        }
+      } catch (error) {
+        console.error("Failed to load weather", error);
+      } finally {
+        setLoadingWeather(false);
+      }
+    };
+
+    loadWeather();
+  }, []);
+
 
   // Mock weather data
-  const weatherData = {
-    temperature: 28,
-    humidity: 75,
-    rainfall: 12,
-    windSpeed: 8,
-    condition: "Partly Cloudy",
-    forecast: [
-      { day: "Today", temp: 28, condition: "Cloudy", rain: 60 },
-      { day: "Tomorrow", temp: 30, condition: "Sunny", rain: 10 },
-      { day: "Wed", temp: 27, condition: "Rainy", rain: 85 },
-      { day: "Thu", temp: 29, condition: "Cloudy", rain: 40 },
-      { day: "Fri", temp: 31, condition: "Sunny", rain: 5 }
-    ]
-  };
+  const weatherData = realWeather
+    ? {
+      temperature: realWeather.current.temperature,
+      humidity: realWeather.current.humidity,
+      rainfall: realWeather.current.rainfall,
+      windSpeed: realWeather.current.wind_speed,
+      condition: realWeather.current.condition,
+      forecast: realWeather.forecast.map((day) => ({
+        day: day.day,
+        temp: day.temperature,
+        condition: day.condition,
+        rain: day.rain_probability,
+      })),
+    }
+    : {
+      temperature: 28,
+      humidity: 75,
+      rainfall: 12,
+      windSpeed: 8,
+      condition: "Partly Cloudy",
+      forecast: [
+        { day: "Today", temp: 28, condition: "Cloudy", rain: 60 },
+        { day: "Tomorrow", temp: 30, condition: "Sunny", rain: 10 },
+        { day: "Wed", temp: 27, condition: "Rainy", rain: 85 },
+        { day: "Thu", temp: 29, condition: "Cloudy", rain: 40 },
+        { day: "Fri", temp: 31, condition: "Sunny", rain: 5 },
+      ],
+    };
 
   useEffect(() => {
     // Mock recommendation generation
@@ -147,7 +203,7 @@ export default function WeatherIrrigation() {
               <CloudRain className="w-5 h-5 text-primary" />
               Current Weather
             </CardTitle>
-            <CardDescription>Live weather data for Kathmandu</CardDescription>
+            <CardDescription>Live weather data for {realWeather?.city || "Kathmandu"}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">

@@ -20,6 +20,8 @@ export async function saveCityFromLocation() {
 
           if (city) {
             localStorage.setItem("user_city", city);
+            localStorage.setItem("user_lat", lat);
+            localStorage.setItem("user_lon", lon);
             resolve(city); // ✅ RETURN city
           } else {
             resolve(null);

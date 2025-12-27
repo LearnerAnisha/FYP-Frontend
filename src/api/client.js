@@ -28,17 +28,12 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // If access token expired
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry
-    ) {
+    if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
 
       const refresh = localStorage.getItem("refresh");
 
       if (!refresh) {
-        // No refresh token → force logout
         localStorage.clear();
         window.location.href = "/auth";
         return Promise.reject(error);
@@ -50,16 +45,12 @@ apiClient.interceptors.response.use(
           { refresh }
         );
 
-        // Save new access token
         localStorage.setItem("access", res.data.access);
-
-        // Retry original request with new token
         originalRequest.headers.Authorization =
           `Bearer ${res.data.access}`;
 
         return apiClient(originalRequest);
       } catch (refreshError) {
-        // Refresh token also expired
         localStorage.clear();
         window.location.href = "/auth";
         return Promise.reject(refreshError);
