@@ -1,5 +1,5 @@
 import { getCurrentWeather } from "@/api/weather";
-import { saveCityFromLocation } from "@/utils/locationToCity";
+import { getUserCoordinates } from "@/utils/useGeolocation";
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -31,26 +31,15 @@ export default function WeatherIrrigation() {
     const loadWeather = async () => {
       setLoadingWeather(true);
 
-      let city =
-        localStorage.getItem("user_city") ||
-        (await saveCityFromLocation()) ||
-        "Kathmandu";
-
-      const lat = localStorage.getItem("user_lat");
-      const lon = localStorage.getItem("user_lon");
-
-      const data = await getCurrentWeather({
-        city,
-        lat,
-        lon,
-      });
       try {
-        const data = await getCurrentWeather(city);
-        console.log("WEATHER API RESPONSE:", data);
+        const coords = await getUserCoordinates();
 
-        if (data.error) {
-          console.warn(data.message);
-        } else {
+        const data = await getCurrentWeather({
+          lat: coords?.lat,
+          lon: coords?.lon,
+        });
+
+        if (!data?.error) {
           setRealWeather(data);
         }
       } catch (error) {
@@ -62,7 +51,6 @@ export default function WeatherIrrigation() {
 
     loadWeather();
   }, []);
-
 
   // Mock weather data
   const weatherData = realWeather

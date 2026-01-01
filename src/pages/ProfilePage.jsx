@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { fetchProfile, updateProfile, changePassword, deleteAccount } from "@/api/profile";
-import { saveCityFromLocation } from "@/utils/locationToCity";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,7 +55,8 @@ export default function ProfilePage() {
     experience: "",
     bio: "",
     language: "nepali",
-    joinDate: ""
+    joinDate: "",
+    activeDays: 0,
   });
 
   const [notifications, setNotifications] = useState({
@@ -78,9 +78,6 @@ export default function ProfilePage() {
   useEffect(() => {
     async function loadProfile() {
       try {
-        // 1. Get city (async)
-        const city = await saveCityFromLocation();
-
         // 2. Fetch profile from backend
         const data = await fetchProfile();
 
@@ -91,13 +88,19 @@ export default function ProfilePage() {
           email: data.email,
           phone: data.phone || "",
           avatar: data.avatar,
-          location: city || localStorage.getItem("user_city") || "",
-          joinDate: new Date(data.date_joined).toLocaleDateString("en-US", {
-            month: "long",
-            year: "numeric",
-          }),
-          activeDays: data.active_days,
+
+          activeDays: data.active_days || 0, 
+          joinDate: data.date_joined
+            ? new Date(data.date_joined).toLocaleDateString()
+            : "",
+
+          farmSize: data.farmer_profile?.farm_size || "",
+          experience: data.farmer_profile?.experience || "",
+          cropTypes: data.farmer_profile?.crop_types || "",
+          language: data.farmer_profile?.language || "nepali",
+          bio: data.farmer_profile?.bio || "",
         }));
+
       } catch (err) {
         console.error("Profile load error:", err);
         toast.error("Failed to load profile");
@@ -116,8 +119,14 @@ export default function ProfilePage() {
       await updateProfile({
         full_name: profileData.fullName,
         phone: profileData.phone,
-        bio: profileData.bio,
-        language: profileData.language,
+
+        farmer_profile: {
+          farm_size: profileData.farmSize,
+          experience: profileData.experience,
+          crop_types: profileData.cropTypes,
+          language: profileData.language,
+          bio: profileData.bio,
+        }
       });
 
       toast.success("Profile updated successfully!");

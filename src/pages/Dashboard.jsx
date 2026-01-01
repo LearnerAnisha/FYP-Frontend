@@ -15,7 +15,6 @@ import {
   Clock,
   Leaf
 } from "lucide-react";
-import { saveCityFromLocation } from "@/utils/locationToCity";
 import { fetchProfile } from "@/api/profile";
 
 export default function Dashboard() {
@@ -25,11 +24,6 @@ export default function Dashboard() {
   useEffect(() => {
     async function loadDashboardData() {
       try {
-        // Ask for location only once
-        const city = localStorage.getItem("user_city");
-        if (!city) {
-          await saveCityFromLocation();
-        }
 
         // Fetch user profile from backend
         const profile = await fetchProfile();
