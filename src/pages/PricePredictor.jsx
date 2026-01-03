@@ -87,8 +87,6 @@ const basePredictionData = {
   }
 };
 
-
-
 /* 
    MAIN COMPONENT
 */
@@ -102,38 +100,52 @@ export default function PricePredictor() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  //Live Market controls
+  const [liveSearch, setLiveSearch] = useState("");
+
+  //Master Product controls
+  const [productSearch, setProductSearch] = useState("");
+  const [productSort, setProductSort] = useState("");
 
   /* 
      FETCH TODAY'S PRICES + ANALYSIS DATA
   */
   useEffect(() => {
-    async function load() {
+    async function loadLiveMarket() {
+      try {
+        const analysisData = await getMarketAnalysis();
+        setAnalysis(analysisData);
+      } catch {
+        setError("Failed to load live market data");
+      }
+    }
+
+    loadLiveMarket();
+  }, []);
+
+  useEffect(() => {
+    async function loadProducts() {
       try {
         setLoading(true);
 
-        const priceList = await getMarketPrices();
-        const analysisData = await getMarketAnalysis();
+        const data = await getMarketPrices({
+          search: productSearch,
+          ordering: productSort,
+        });
 
-        setPrices(priceList);
-        setAnalysis(analysisData);
-
+        setPrices(data);
         setError(null);
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load market data");
+      } catch {
+        setError("Failed to load products");
       } finally {
         setLoading(false);
       }
     }
 
-    load();
-  }, []);
+    loadProducts();
+  }, [productSearch, productSort]);
 
-
-
-  /* 
-     MATCH SELECTED CROP TO REAL MARKET PRICE
-  */
+  // MATCH SELECTED CROP TO REAL MARKET PRICE
   const NAME_MATCH = {
     tomato: ["Tomato", "Tomato Small", "Tomato Big", "Tomato Local"],
     potato: ["Potato", "Potato Red", "Potato White"],
@@ -161,11 +173,7 @@ export default function PricePredictor() {
     current: selectedReal ? selectedReal.today : basePredictionData[selectedCrop].previous
   };
 
-
-
-  /* 
-     LIVE MARKET TABLE DATA
-  */
+  // LIVE MARKET TABLE DATA
   const marketRows =
     analysis?.changes?.map(item => ({
       name: item.commodity,
@@ -175,9 +183,11 @@ export default function PricePredictor() {
       unit: "kg"
     })) || [];
 
-  /* 
-     RENDER UI
-   */
+  const filteredLiveMarket = marketRows.filter(item =>
+    item.name.toLowerCase().includes(liveSearch.toLowerCase())
+  );
+
+  // RENDER UI
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -251,7 +261,6 @@ export default function PricePredictor() {
           </div>
         )}
 
-
         {/* TABS (LIVE MARKET FIRST) */}
         <Tabs defaultValue="market">
           <TabsList>
@@ -260,144 +269,196 @@ export default function PricePredictor() {
             <TabsTrigger value="predictor">Price Predictor</TabsTrigger>
           </TabsList>
 
-
-
-          {/*
-              LIVE MARKET TAB
-           */}
+          {/* LIVE MARKET TAB */}
           <TabsContent value="market" className="space-y-6">
             <Card>
-              <CardHeader>
-                <CardTitle>Live Market Prices</CardTitle>
-                <CardDescription>Real-time Kalimati Prices</CardDescription>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <CardTitle>Live Market Prices</CardTitle>
+                  <CardDescription>Real-time Kalimati Prices</CardDescription>
+                </div>
+
+                <input
+                  type="text"
+                  placeholder="Search commodity…"
+                  value={liveSearch}
+                  onChange={(e) => setLiveSearch(e.target.value)}
+                  className="border rounded-md px-3 py-2 text-sm w-full sm:w-60"
+                />
               </CardHeader>
 
               <CardContent>
-                <div className="space-y-3">
-                  {marketRows.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="flex justify-between p-4 rounded-lg bg-muted/50"
-                    >
-                      {/* Left side */}
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={`w-10 h-10 rounded-lg flex items-center justify-center ${item.trend === "up"
-                            ? "bg-success/10"
-                            : "bg-destructive/10"
-                            }`}
-                        >
-                          {item.trend === "up" ? (
-                            <TrendingUp className="w-5 h-5 text-success" />
-                          ) : (
-                            <TrendingDown className="w-5 h-5 text-destructive" />
-                          )}
+                {filteredLiveMarket.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-8">
+                    No market data found.
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {filteredLiveMarket.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex justify-between p-4 rounded-lg bg-muted/50"
+                      >
+                        {/* Left side */}
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-10 h-10 rounded-lg flex items-center justify-center ${item.trend === "up"
+                              ? "bg-success/10"
+                              : "bg-destructive/10"
+                              }`}
+                          >
+                            {item.trend === "up" ? (
+                              <TrendingUp className="w-5 h-5 text-success" />
+                            ) : (
+                              <TrendingDown className="w-5 h-5 text-destructive" />
+                            )}
+                          </div>
+
+                          <div>
+                            <p className="font-semibold">{item.name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Unit: {item.unit}
+                            </p>
+                          </div>
                         </div>
 
-                        <div>
-                          <p className="font-semibold">{item.name}</p>
-                          <p className="text-sm text-muted-foreground">Unit: {item.unit}</p>
+                        {/* Right side */}
+                        <div className="text-right">
+                          <p className="text-xl font-bold">NPR {item.price}</p>
+                          <Badge
+                            variant={item.trend === "up" ? "secondary" : "destructive"}
+                          >
+                            {item.trend === "up" ? "+" : ""}
+                            {item.change}%
+                          </Badge>
                         </div>
                       </div>
-
-                      {/* Right side */}
-                      <div className="text-right">
-                        <p className="text-xl font-bold">NPR {item.price}</p>
-                        <Badge
-                          variant={
-                            item.trend === "up" ? "secondary" : "destructive"
-                          }
-                        >
-                          {item.trend === "up" ? "+" : ""}
-                          {item.change}%
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </CardContent>
+
             </Card>
           </TabsContent>
 
-          {/* ================= LATEST MARKET (NEW, SAME DESIGN) ================= */}
-          {/* ================= MASTER PRODUCT TAB ================= */}
+          {/*  MASTER PRODUCT TAB */}
           <TabsContent value="latest">
             <Card>
-              <CardHeader>
-                <CardTitle>Latest Market Prices</CardTitle>
-                <CardDescription>
-                  Complete commodity snapshot (Master Product data)
-                </CardDescription>
-              </CardHeader>
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                {/* LEFT: Title + description */}
+                <div>
+                  <CardTitle>Latest Market Prices</CardTitle>
+                  <CardDescription>
+                    Complete commodity snapshot (Master Product data)
+                  </CardDescription>
+                </div>
 
+                {/* RIGHT: Search + Sort (same row) */}
+                <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                  <input
+                    type="text"
+                    placeholder="Search commodity…"
+                    value={productSearch}
+                    onChange={(e) => setProductSearch(e.target.value)}
+                    className="border rounded-md px-3 py-2 text-sm w-full sm:w-60"
+                  />
+
+                  <Select onValueChange={setProductSort}>
+                    <SelectTrigger className="w-full sm:w-48">
+                      <SelectValue placeholder="Sort by price" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="price_asc">Price ↑</SelectItem>
+                      <SelectItem value="price_desc">Price ↓</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardHeader>
               <CardContent className="space-y-4">
-                {prices.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="p-4 rounded-lg bg-muted/50 space-y-3"
-                  >
-                    {/* HEADER */}
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                        <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10">
-                          <DollarSign className="w-5 h-5 text-primary" />
+                {prices.length === 0 ? (
+                  <div className="text-center text-muted-foreground py-10">
+                    No products found matching your search.
+                  </div>
+                ) : (
+                  prices.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 rounded-lg bg-muted/50 space-y-3"
+                    >
+                      {/* HEADER */}
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10">
+                            <DollarSign className="w-5 h-5 text-primary" />
+                          </div>
+
+                          <div>
+                            <p className="font-semibold text-lg">
+                              {item.commodityname}
+                            </p>
+                            <p className="text-sm text-muted-foreground">
+                              Unit: {item.commodityunit || "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="text-right">
+                          <p className="text-xl font-bold">
+                            NPR {item.last_price ?? "N/A"}
+                          </p>
+                          <Badge variant="outline">
+                            Last Known Price
+                          </Badge>
+                        </div>
+                      </div>
+
+                      {/* PRICE GRID */}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Min Price</p>
+                          <p className="font-medium">
+                            NPR {item.min_price ?? "—"}
+                          </p>
                         </div>
 
                         <div>
-                          <p className="font-semibold text-lg">
-                            {item.commodityname}
+                          <p className="text-muted-foreground">Max Price</p>
+                          <p className="font-medium">
+                            NPR {item.max_price ?? "—"}
                           </p>
-                          <p className="text-sm text-muted-foreground">
-                            Unit: {item.commodityunit}
+                        </div>
+
+                        <div>
+                          <p className="text-muted-foreground">Avg Price</p>
+                          <p className="font-medium">
+                            NPR {item.avg_price ?? "—"}
+                          </p>
+                        </div>
+
+                        <div>
+                          <p className="text-muted-foreground">Last Price</p>
+                          <p className="font-medium">
+                            NPR {item.last_price ?? "—"}
                           </p>
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-xl font-bold">
-                          NPR {item.last_price ?? "N/A"}
-                        </p>
-                        <Badge variant="outline">
-                          Last Known Price
-                        </Badge>
+                      {/* META */}
+                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+                        <span>
+                          Inserted: <strong>{item.insert_date}</strong>
+                        </span>
+                        <span>
+                          Last Updated: <strong>{item.last_update}</strong>
+                        </span>
                       </div>
                     </div>
-
-                    {/* PRICE GRID */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Min Price</p>
-                        <p className="font-medium">NPR {item.min_price ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Max Price</p>
-                        <p className="font-medium">NPR {item.max_price ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Avg Price</p>
-                        <p className="font-medium">NPR {item.avg_price ?? "—"}</p>
-                      </div>
-                      <div>
-                        <p className="text-muted-foreground">Last Price</p>
-                        <p className="font-medium">NPR {item.last_price ?? "—"}</p>
-                      </div>
-                    </div>
-
-                    {/* META */}
-                    <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                      <span>
-                        Inserted: <strong>{item.insert_date}</strong>
-                      </span>
-                      <span>
-                        Last Updated: <strong>{item.last_update}</strong>
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </CardContent>
+
             </Card>
           </TabsContent>
-
 
           {/*
               PRICE PREDICTOR TAB
