@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
+import { useMemo } from "react";
 
 // UI Components
 import {
@@ -92,12 +93,16 @@ const basePredictionData = {
 */
 
 export default function PricePredictor() {
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [selectedCrop, setSelectedCrop] = useState("tomato");
 
   const [prices, setPrices] = useState([]);
   const [analysis, setAnalysis] = useState(null);
 
-  const [loading, setLoading] = useState(true);
+  const [analysisLoading, setAnalysisLoading] = useState(true);
+  const [productsLoading, setProductsLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
   //Live Market controls
@@ -107,16 +112,52 @@ export default function PricePredictor() {
   const [productSearch, setProductSearch] = useState("");
   const [productSort, setProductSort] = useState("");
 
+  const filteredProducts = useMemo(() => {
+    let data = [...prices];
+
+    // SEARCH
+    if (productSearch.trim()) {
+      data = data.filter(item =>
+        item.commodityname
+          ?.toLowerCase()
+          .includes(productSearch.toLowerCase())
+      );
+    }
+
+    // SORT
+    if (productSort === "price_asc") {
+      data.sort((a, b) => (a.last_price ?? 0) - (b.last_price ?? 0));
+    }
+
+    if (productSort === "price_desc") {
+      data.sort((a, b) => (b.last_price ?? 0) - (a.last_price ?? 0));
+    }
+
+    return data;
+  }, [prices, productSearch, productSort]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(productSearch);
+    }, 500); // waits 500ms after typing stops
+
+    return () => clearTimeout(timer);
+  }, [productSearch]);
+
+
   /* 
      FETCH TODAY'S PRICES + ANALYSIS DATA
   */
   useEffect(() => {
     async function loadLiveMarket() {
       try {
+        setAnalysisLoading(true);
         const analysisData = await getMarketAnalysis();
         setAnalysis(analysisData);
       } catch {
         setError("Failed to load live market data");
+      } finally {
+        setAnalysisLoading(false);
       }
     }
 
@@ -126,24 +167,20 @@ export default function PricePredictor() {
   useEffect(() => {
     async function loadProducts() {
       try {
-        setLoading(true);
+        setProductsLoading(true);
 
-        const data = await getMarketPrices({
-          search: productSearch,
-          ordering: productSort,
-        });
-
+        const data = await getMarketPrices(); // NO SEARCH HERE
         setPrices(data);
         setError(null);
       } catch {
         setError("Failed to load products");
       } finally {
-        setLoading(false);
+        setProductsLoading(false);
       }
     }
 
     loadProducts();
-  }, [productSearch, productSort]);
+  }, []);
 
   // MATCH SELECTED CROP TO REAL MARKET PRICE
   const NAME_MATCH = {
@@ -199,18 +236,6 @@ export default function PricePredictor() {
             Real-time Kalimati prices with AI-powered insights.
           </p>
         </div>
-
-
-        {/* LOADING / ERROR */}
-        {loading && (
-          <Card><CardContent className="p-4">Loading market data…</CardContent></Card>
-        )}
-        {error && (
-          <Card className="border-destructive">
-            <CardContent className="p-4 text-destructive">{error}</CardContent>
-          </Card>
-        )}
-
 
         {/* QUICK STATS */}
         {analysis && (
@@ -374,87 +399,101 @@ export default function PricePredictor() {
                   </Select>
                 </div>
               </CardHeader>
+
               <CardContent className="space-y-4">
-                {prices.length === 0 ? (
+
+                {/* LOADING (only initial load, prevents flicker while typing) */}
+                {productsLoading && prices.length === 0 && (
+                  <Card>
+                    <CardContent className="p-4 text-center text-muted-foreground">
+                      Loading market data…
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* EMPTY STATE */}
+                {!productsLoading && filteredProducts.length === 0 && (
                   <div className="text-center text-muted-foreground py-10">
                     No products found matching your search.
                   </div>
-                ) : (
-                  prices.map((item, idx) => (
-                    <div
-                      key={idx}
-                      className="p-4 rounded-lg bg-muted/50 space-y-3"
-                    >
-                      {/* HEADER */}
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 rounded-lg flex items-center justify-center bg-primary/10">
-                            <DollarSign className="w-5 h-5 text-primary" />
-                          </div>
+                )}
 
-                          <div>
-                            <p className="font-semibold text-lg">
-                              {item.commodityname}
-                            </p>
-                            <p className="text-sm text-muted-foreground">
-                              Unit: {item.commodityunit || "—"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="text-right">
-                          <p className="text-xl font-bold">
-                            NPR {item.last_price ?? "N/A"}
-                          </p>
-                          <Badge variant="outline">
-                            Last Known Price
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* PRICE GRID */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                        <div>
-                          <p className="text-muted-foreground">Min Price</p>
-                          <p className="font-medium">
-                            NPR {item.min_price ?? "—"}
-                          </p>
+                {/* PRODUCT LIST */}
+                {!productsLoading && filteredProducts.length > 0 && filteredProducts.map((item, idx) => (
+                  <div
+                    key={idx}
+                    className="p-3 rounded-lg bg-muted/50 space-y-2"
+                  >
+                    {/* HEADER */}
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10">
+                          <DollarSign className="w-4 h-4 text-primary" />
                         </div>
 
                         <div>
-                          <p className="text-muted-foreground">Max Price</p>
-                          <p className="font-medium">
-                            NPR {item.max_price ?? "—"}
+                          <p className="font-semibold text-lg">
+                            {item.commodityname}
                           </p>
-                        </div>
-
-                        <div>
-                          <p className="text-muted-foreground">Avg Price</p>
-                          <p className="font-medium">
-                            NPR {item.avg_price ?? "—"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <p className="text-muted-foreground">Last Price</p>
-                          <p className="font-medium">
-                            NPR {item.last_price ?? "—"}
+                          <p className="text-sm text-muted-foreground">
+                            Unit: {item.commodityunit || "—"}
                           </p>
                         </div>
                       </div>
 
-                      {/* META */}
-                      <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-                        <span>
-                          Inserted: <strong>{item.insert_date}</strong>
-                        </span>
-                        <span>
-                          Last Updated: <strong>{item.last_update}</strong>
-                        </span>
+                      <div className="text-right">
+                        <p className="text-xl font-bold">
+                          NPR {item.last_price ?? "N/A"}
+                        </p>
+                        <Badge variant="outline">
+                          Last Known Price
+                        </Badge>
                       </div>
                     </div>
-                  ))
-                )}
+
+                    {/* PRICE GRID */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
+                      <div>
+                        <p className="text-muted-foreground">Min Price</p>
+                        <p className="font-semibold">
+                          NPR {item.min_price ?? "—"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-muted-foreground">Max Price</p>
+                        <p className="font-medium">
+                          NPR {item.max_price ?? "—"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-muted-foreground">Avg Price</p>
+                        <p className="font-medium">
+                          NPR {item.avg_price ?? "—"}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-muted-foreground">Last Price</p>
+                        <p className="font-medium">
+                          NPR {item.last_price ?? "—"}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* META */}
+                    <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
+                      <span>
+                        Inserted: <strong>{item.insert_date}</strong>
+                      </span>
+                      <span>
+                        Last Updated: <strong>{item.last_update}</strong>
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
               </CardContent>
 
             </Card>
