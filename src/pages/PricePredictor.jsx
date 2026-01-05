@@ -322,7 +322,14 @@ export default function PricePredictor() {
                     {filteredLiveMarket.map((item, idx) => (
                       <div
                         key={idx}
-                        className="flex justify-between p-4 rounded-lg bg-muted/50"
+                        className="flex items-center justify-between
+                                  p-4 rounded-lg
+                                  bg-muted/50
+                                  hover:bg-muted
+                                  transition-all duration-200
+                                  hover:shadow-md
+                                  hover:scale-[1.01]
+                                  cursor-pointer"
                       >
                         {/* Left side */}
                         <div className="flex items-center gap-4">
@@ -422,73 +429,61 @@ export default function PricePredictor() {
                 {!productsLoading && filteredProducts.length > 0 && filteredProducts.map((item, idx) => (
                   <div
                     key={idx}
-                    className="p-3 rounded-lg bg-muted/50 space-y-2"
+                    className="
+                                group
+                                  rounded-lg
+                                  px-4 py-3
+                                  bg-muted/40
+                                  hover:bg-muted/60
+                                  transition-all duration-200
+                                  hover:shadow-md
+                                  hover:scale-[1.01]
+                                  cursor-pointer
+                                "
                   >
-                    {/* HEADER */}
-                    <div className="flex justify-between items-center">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-primary/10">
+                    {/* TOP ROW */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-md bg-primary/10 flex items-center justify-center">
                           <DollarSign className="w-4 h-4 text-primary" />
                         </div>
 
                         <div>
-                          <p className="font-semibold text-lg">
+                          <p className="font-medium leading-tight">
                             {item.commodityname}
                           </p>
-                          <p className="text-sm text-muted-foreground">
-                            Unit: {item.commodityunit || "—"}
+                          <p className="text-xs text-muted-foreground">
+                            Unit: {item.commodityunit || "kg"}
                           </p>
                         </div>
                       </div>
 
                       <div className="text-right">
-                        <p className="text-xl font-bold">
-                          NPR {item.last_price ?? "N/A"}
-                        </p>
-                        <Badge variant="outline">
-                          Last Known Price
-                        </Badge>
-                      </div>
-                    </div>
-
-                    {/* PRICE GRID */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Min Price</p>
-                        <p className="font-semibold">
-                          NPR {item.min_price ?? "—"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-muted-foreground">Max Price</p>
-                        <p className="font-medium">
-                          NPR {item.max_price ?? "—"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-muted-foreground">Avg Price</p>
-                        <p className="font-medium">
-                          NPR {item.avg_price ?? "—"}
-                        </p>
-                      </div>
-
-                      <div>
-                        <p className="text-muted-foreground">Last Price</p>
-                        <p className="font-medium">
+                        <p className="text-lg font-semibold">
                           NPR {item.last_price ?? "—"}
                         </p>
+                        <p className="text-xs text-muted-foreground">
+                          Last price
+                        </p>
                       </div>
                     </div>
 
-                    {/* META */}
-                    <div className="flex flex-wrap gap-3 text-[11px] text-muted-foreground">
-                      <span>
-                        Inserted: <strong>{item.insert_date}</strong>
+                    {/* PRICE ROW (KEEP ALL VALUES) */}
+                    <div className="mt-2 flex flex-wrap justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Min: <strong className="text-foreground">NPR {item.min_price ?? "—"}</strong>
                       </span>
-                      <span>
-                        Last Updated: <strong>{item.last_update}</strong>
+
+                      <span className="text-muted-foreground">
+                        Max: <strong className="text-foreground">NPR {item.max_price ?? "—"}</strong>
+                      </span>
+
+                      <span className="text-muted-foreground">
+                        Avg: <strong className="text-foreground">NPR {item.avg_price ?? "—"}</strong>
+                      </span>
+
+                      <span className="text-muted-foreground">
+                        Updated: <strong className="text-foreground">{item.last_update}</strong>
                       </span>
                     </div>
                   </div>
