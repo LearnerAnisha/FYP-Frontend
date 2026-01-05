@@ -110,40 +110,20 @@ export default function PricePredictor() {
 
   //Master Product controls
   const [productSearch, setProductSearch] = useState("");
-  const [productSort, setProductSort] = useState("");
-
-  const filteredProducts = useMemo(() => {
-    let data = [...prices];
-
-    // SEARCH
-    if (productSearch.trim()) {
-      data = data.filter(item =>
-        item.commodityname
-          ?.toLowerCase()
-          .includes(productSearch.toLowerCase())
-      );
-    }
-
-    // SORT
-    if (productSort === "price_asc") {
-      data.sort((a, b) => (a.last_price ?? 0) - (b.last_price ?? 0));
-    }
-
-    if (productSort === "price_desc") {
-      data.sort((a, b) => (b.last_price ?? 0) - (a.last_price ?? 0));
-    }
-
-    return data;
-  }, [prices, productSearch, productSort]);
+  const [productOrdering, setProductOrdering] = useState("");
 
   useEffect(() => {
+    if (productSearch.trim().length < 2) {
+      setDebouncedSearch("");
+      return;
+    }
+
     const timer = setTimeout(() => {
       setDebouncedSearch(productSearch);
-    }, 500); // waits 500ms after typing stops
+    }, 400);
 
     return () => clearTimeout(timer);
   }, [productSearch]);
-
 
   /* 
      FETCH TODAY'S PRICES + ANALYSIS DATA
@@ -165,22 +145,39 @@ export default function PricePredictor() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
     async function loadProducts() {
       try {
-        setProductsLoading(true);
+        const params = {};
 
-        const data = await getMarketPrices(); // NO SEARCH HERE
+        if (debouncedSearch.trim()) {
+          params.search = debouncedSearch;
+        }
+
+        if (productOrdering) {
+          params.ordering = productOrdering;
+        }
+
+        setProductsLoading(prev => prev)
+
+        const data = await getMarketPrices(params, controller.signal);
         setPrices(data);
         setError(null);
-      } catch {
-        setError("Failed to load products");
+      } catch (err) {
+        // Ignore aborted requests
+        if (err.name !== "CanceledError" && err.name !== "AbortError") {
+          setError("Failed to load products");
+        }
       } finally {
         setProductsLoading(false);
       }
     }
-
     loadProducts();
-  }, []);
+
+    //  Cancel previous request when effect re-runs
+    return () => controller.abort();
+  }, [debouncedSearch, productOrdering]);
 
   // MATCH SELECTED CROP TO REAL MARKET PRICE
   const NAME_MATCH = {
@@ -319,9 +316,9 @@ export default function PricePredictor() {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {filteredLiveMarket.map((item, idx) => (
+                    {filteredLiveMarket.map((item) => (
                       <div
-                        key={idx}
+                        key={item.name}
                         className="flex items-center justify-between
                                   p-4 rounded-lg
                                   bg-muted/50
@@ -395,40 +392,43 @@ export default function PricePredictor() {
                     className="border rounded-md px-3 py-2 text-sm w-full sm:w-60"
                   />
 
-                  <Select onValueChange={setProductSort}>
-                    <SelectTrigger className="w-full sm:w-48">
-                      <SelectValue placeholder="Sort by price" />
+                  <Select onValueChange={setProductOrdering}>
+                    <SelectTrigger className="w-full sm:w-56">
+                      <SelectValue placeholder="Sort by" />
                     </SelectTrigger>
+
                     <SelectContent>
-                      <SelectItem value="price_asc">Price ↑</SelectItem>
-                      <SelectItem value="price_desc">Price ↓</SelectItem>
+                      <SelectItem value="last_price">Price ↑ (Low → High)</SelectItem>
+                      <SelectItem value="-last_price">Price ↓ (High → Low)</SelectItem>
+
+                      <SelectItem value="commodityname">Name A → Z</SelectItem>
+                      <SelectItem value="-commodityname">Name Z → A</SelectItem>
                     </SelectContent>
                   </Select>
+
                 </div>
               </CardHeader>
 
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 relative">
 
                 {/* LOADING (only initial load, prevents flicker while typing) */}
-                {productsLoading && prices.length === 0 && (
-                  <Card>
-                    <CardContent className="p-4 text-center text-muted-foreground">
-                      Loading market data…
-                    </CardContent>
-                  </Card>
+                {productsLoading && (
+                  <p className="absolute top-3 right-4 text-xs text-muted-foreground animate-pulse">
+                    Updating results…
+                  </p>
                 )}
 
                 {/* EMPTY STATE */}
-                {!productsLoading && filteredProducts.length === 0 && (
+                {!productsLoading && prices.length === 0 && debouncedSearch.trim() && (
                   <div className="text-center text-muted-foreground py-10">
                     No products found matching your search.
                   </div>
                 )}
 
                 {/* PRODUCT LIST */}
-                {!productsLoading && filteredProducts.length > 0 && filteredProducts.map((item, idx) => (
+                {prices.length > 0 && prices.map((item, idx) => (
                   <div
-                    key={idx}
+                    key={item.id ?? item.commodityname}
                     className="
                                 group
                                   rounded-lg
