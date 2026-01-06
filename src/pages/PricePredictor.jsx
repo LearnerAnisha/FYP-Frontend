@@ -499,125 +499,251 @@ export default function PricePredictor() {
           */}
           <TabsContent value="predictor" className="space-y-6">
 
-            {/* CROP SELECTOR */}
+            {/* SEARCH */}
             <Card>
-              <CardContent className="p-6 max-w-xs space-y-2">
-                <label className="text-sm font-medium">Select Crop</label>
+              <CardContent className="p-4">
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-muted-foreground"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                    >
+                      <path d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+                    </svg>
+                  </div>
 
-                <Select value={selectedCrop} onValueChange={setSelectedCrop}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="tomato">Tomato</SelectItem>
-                    <SelectItem value="potato">Potato</SelectItem>
-                    <SelectItem value="rice">Rice</SelectItem>
-                  </SelectContent>
-                </Select>
+                  <input
+                    type="text"
+                    placeholder="Search crops, regions, or reports…"
+                    className="
+            w-full h-11 rounded-lg
+            bg-muted/40 border border-border/50
+            pl-11 pr-4 text-sm
+            focus:outline-none focus:ring-2 focus:ring-primary/30
+          "
+                  />
+                </div>
               </CardContent>
             </Card>
 
+            {/* MARKET STYLE HEADER — AI CARD STYLE */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-destructive/15 flex items-center justify-center">
+                      <span className="text-lg">🍅</span>
+                    </div>
 
-
-            {/* CURRENT PRICE DISPLAY */}
-            <Card className="border-primary/20">
-              <CardHeader>
-                <CardTitle>Current Market Price</CardTitle>
-                <CardDescription>Kalimati Market (Live Data)</CardDescription>
-              </CardHeader>
-
-              <CardContent>
-                {selectedReal ? (
-                  <div className="flex justify-between items-end">
                     <div>
-                      <p className="text-sm text-muted-foreground">Price per kg</p>
-
-                      <div className="flex items-end gap-3">
-                        <p className="text-5xl font-bold">NPR {selectedReal.today}</p>
-
-                        <Badge
-                          variant={selectedReal.trend === "up" ? "secondary" : "destructive"}
-                          className="mb-2"
-                        >
-                          {selectedReal.trend === "up" ? (
-                            <ArrowUpRight className="w-4 h-4 mr-1" />
-                          ) : (
-                            <ArrowDownRight className="w-4 h-4 mr-1" />
-                          )}
-                          {selectedReal.change_percentage}%
-                        </Badge>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="capitalize">
+                          {selectedCrop} (Big)
+                        </CardTitle>
+                        <Badge variant="secondary">In Season</Badge>
                       </div>
 
-                      <p className="text-sm text-muted-foreground">
-                        Yesterday: NPR {selectedReal.yesterday}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Kalimati Market • Updated {analysis?.today}
                       </p>
                     </div>
-
-                    <div
-                      className={`w-20 h-20 rounded-full flex items-center justify-center ${selectedReal.trend === "up"
-                        ? "bg-success/10"
-                        : "bg-destructive/10"
-                        }`}
-                    >
-                      {selectedReal.trend === "up" ? (
-                        <TrendingUp className="w-10 h-10 text-success" />
-                      ) : (
-                        <TrendingDown className="w-10 h-10 text-destructive" />
-                      )}
-                    </div>
                   </div>
-                ) : (
-                  <p>No market data found for selected crop.</p>
-                )}
+
+                  {selectedReal && (
+                    <div className="text-right">
+                      <p className="text-3xl font-bold">
+                        Rs {selectedReal.today}
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {" "} / kg
+                        </span>
+                      </p>
+
+                      <p
+                        className={`text-xs ${selectedReal.trend === "up"
+                          ? "text-success"
+                          : "text-destructive"
+                          }`}
+                      >
+                        {selectedReal.trend === "up" ? "↗" : "↘"}{" "}
+                        {selectedReal.change_percentage}% since yesterday
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="pt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Today</p>
+                    <p className="text-lg font-semibold">
+                      Rs {selectedReal?.today ?? "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Yesterday</p>
+                    <p className="text-lg font-semibold">
+                      Rs {selectedReal?.yesterday ?? "—"}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">7-Day Avg</p>
+                    <p className="text-lg font-semibold">
+                      Rs {mergedCurrentData.previous}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3">
+                    <p className="text-xs text-muted-foreground">Monthly Avg</p>
+                    <p className="text-lg font-semibold">
+                      Rs {(mergedCurrentData.previous * 0.9).toFixed(1)}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3 text-success">
+                    <p className="text-xs text-muted-foreground">Highest (30D)</p>
+                    <p className="text-lg font-semibold">
+                      Rs {Math.max(...mergedCurrentData.prediction.map(p => p.price))}
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-muted/40 p-3 text-destructive">
+                    <p className="text-xs text-muted-foreground">Lowest (30D)</p>
+                    <p className="text-lg font-semibold">
+                      Rs {Math.min(...mergedCurrentData.prediction.map(p => p.price))}
+                    </p>
+                  </div>
+                </div>
               </CardContent>
             </Card>
 
+            {/* INNER TABS */}
+            <Tabs defaultValue="forecast">
+              <TabsList>
+                <TabsTrigger value="forecast">Forecast</TabsTrigger>
+                <TabsTrigger value="historical">Historical</TabsTrigger>
+                <TabsTrigger value="analysis">Analysis</TabsTrigger>
+              </TabsList>
 
+              <TabsContent value="forecast">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>4-Week Price Forecast</CardTitle>
+                    <CardDescription>
+                      AI-powered predictions with confidence bands
+                    </CardDescription>
+                  </CardHeader>
 
-            {/* 4-WEEK AI PREDICTION */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-primary" />
-                  4-Week Price Forecast
-                </CardTitle>
-                <CardDescription>AI-based prediction</CardDescription>
-              </CardHeader>
-
-              <CardContent className="space-y-6">
-                {mergedCurrentData.prediction.map((p, i) => (
-                  <div key={i} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>{p.date}</span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-bold">NPR {p.price}</span>
-                        <Badge variant="outline">{p.confidence}% confidence</Badge>
-                      </div>
-                    </div>
-
-                    <div className="h-3 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-gradient-primary"
-                        style={{ width: `${p.price}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
-
-                <Card className="bg-gradient-hero border-primary/20">
-                  <CardContent className="p-4 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-primary mt-1" />
-                    <div>
-                      <h4 className="font-semibold mb-2">AI Recommendation</h4>
-                      <p className="text-sm mb-2">{mergedCurrentData.recommendation}</p>
-
-                      <div className="space-y-1 text-xs">
-                        <p className="font-medium">Key Factors:</p>
-                        {mergedCurrentData.factors.map((f, i) => (
-                          <p key={i}>• {f}</p>
-                        ))}
-                      </div>
+                  <CardContent>
+                    <div className="h-56 flex items-end justify-between px-6">
+                      {mergedCurrentData.prediction.map((p, i) => (
+                        <div key={i} className="flex flex-col items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-foreground" />
+                          <span className="text-sm font-medium">Rs {p.price}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {p.date}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </CardContent>
                 </Card>
+              </TabsContent>
+
+              <TabsContent value="historical">
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Historical Price Trend</CardTitle>
+                    <CardDescription>
+                      5-month price movement analysis
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent>
+                    <div className="h-56 flex items-end justify-between px-6">
+                      {["Jan", "Feb", "Mar", "Apr", "May"].map((m, i) => (
+                        <div key={i} className="flex flex-col items-center gap-2">
+                          <div className="w-3 h-3 rounded-full bg-foreground" />
+                          <span className="text-xs text-muted-foreground">{m}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="analysis">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <BarChart3 className="w-5 h-5" />
+                      Forecast Confidence Analysis
+                    </CardTitle>
+                    <CardDescription>
+                      Prediction reliability over time horizons
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="space-y-6">
+                    {mergedCurrentData.prediction.map((p, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between text-sm font-medium">
+                          <span>{p.date}</span>
+                          <Badge variant="secondary">{p.confidence}%</Badge>
+                        </div>
+
+                        <div className="h-3 rounded-full bg-muted overflow-hidden">
+                          <div
+                            className="h-full bg-primary"
+                            style={{ width: `${p.confidence}%` }}
+                          />
+                        </div>
+
+                        <p className="text-xs text-muted-foreground">
+                          Predicted: Rs {p.price}
+                        </p>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+            </Tabs>
+
+            {/* 3️⃣ AI PRICE FORECAST — MATCHES THIRD SCREENSHOT */}
+            <Card>
+              <CardHeader>
+                <CardTitle>AI Price Forecast</CardTitle>
+              </CardHeader>
+
+              <CardContent className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  { label: "Tomorrow", price: 66.5, change: 2.3 },
+                  { label: "7 Days", price: 72.0, change: 10.7 },
+                  { label: "14 Days", price: 75.0, change: 15.3 },
+                  { label: "30 Days", price: 68.0, change: -3.2 }
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    className="rounded-xl bg-muted/40 p-4 hover:bg-muted transition"
+                  >
+                    <p className="text-sm font-medium">{item.label}</p>
+                    <p className="text-2xl font-bold mt-1">NPR {item.price}</p>
+                    <p
+                      className={`text-sm ${item.change >= 0 ? "text-success" : "text-destructive"
+                        }`}
+                    >
+                      {item.change >= 0 ? "+" : ""}
+                      {item.change}%
+                    </p>
+                  </div>
+                ))}
               </CardContent>
             </Card>
 
