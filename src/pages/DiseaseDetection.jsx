@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { detectDisease, getRecentScans } from "@/api/disease";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,10 +12,14 @@ export default function DiseaseDetection() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
+
     if (file) {
+      setImageFile(file);
+
       const reader = new FileReader();
       reader.onloadend = () => {
         setSelectedImage(reader.result);
@@ -24,39 +29,24 @@ export default function DiseaseDetection() {
     }
   };
 
-  const handleAnalyze = () => {
-    if (!selectedImage) {
+  const handleAnalyze = async () => {
+    if (!imageFile) {
       toast.error("Please upload an image first");
       return;
     }
 
     setAnalyzing(true);
 
-    // Mock AI analysis
-    setTimeout(() => {
-      setResult({
-        cropType: "Rice",
-        disease: "Leaf Blast",
-        confidence: 92,
-        severity: "Moderate",
-        description: "Rice blast is caused by the fungus Magnaporthe oryzae. It appears as diamond-shaped lesions on leaves.",
-        treatment: [
-          "Remove and destroy infected plant parts",
-          "Apply Tricyclazole fungicide (0.06%) at 10-day intervals",
-          "Ensure proper field drainage",
-          "Avoid excessive nitrogen fertilization",
-          "Use resistant rice varieties in future planting"
-        ],
-        prevention: [
-          "Plant disease-resistant varieties",
-          "Maintain proper plant spacing",
-          "Apply balanced fertilization",
-          "Practice crop rotation"
-        ]
-      });
-      setAnalyzing(false);
+    try {
+      const data = await detectDisease(imageFile);
+      setResult(data);
       toast.success("Analysis completed successfully!");
-    }, 2500);
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to analyze image");
+    } finally {
+      setAnalyzing(false);
+    }
   };
 
   const recentScans = [
