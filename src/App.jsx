@@ -14,6 +14,7 @@ import UserManagement from "@/pages/Admin/UserManagement";
 import Analytics from "@/pages/Admin/Analytics";
 import AdminSettings from "@/pages/Admin/AdminSettings";
 import { Toaster } from "@/components/ui/sonner";
+import AdminLogin from "./pages/Admin/AdminLogin";
 
 function App() {
   return (
@@ -31,9 +32,9 @@ function App() {
           <Route path="/verify-otp" element={<VerifyOTP />} />
 
           {/* Admin Routes */}
+          <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/users" element={<UserManagement />} />
-          <Route path="/admin/analytics" element={<Analytics />} />
           <Route path="/admin/settings" element={<AdminSettings />} />
 
         </Routes>
