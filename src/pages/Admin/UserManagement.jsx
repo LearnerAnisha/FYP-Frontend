@@ -1,384 +1,587 @@
-import { AdminLayout } from "@/components/AdminLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { TrendingUp, TrendingDown, Users, Activity, Scan, DollarSign } from "lucide-react";
-import { useState } from "react";
+import React, { useState, useEffect } from 'react';
+import {
+  Users, Search, Filter, Edit, Trash2, 
+  CheckCircle, XCircle, Mail, Phone, Calendar, Shield,
+  ChevronLeft, ChevronRight, Download, UserCheck, UserX,
+  Eye, X, RefreshCw, Loader
+} from 'lucide-react';
+import { getUsers, deleteUser, toggleUserStatus, verifyUser } from '@/api/admin';
 
-export default function Analytics() {
-  const [timeRange, setTimeRange] = useState("7d");
+const UserManagement = () => {
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filters, setFilters] = useState({
+    is_verified: null,
+    is_active: null,
+    is_staff: null,
+  });
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [actionLoading, setActionLoading] = useState(null);
+  const usersPerPage = 20;
 
-  const overviewStats = [
-    { label: "Total Revenue", value: "NPR 8.4M", change: "+18.2%", trend: "up" },
-    { label: "New Users", value: "1,284", change: "+12.5%", trend: "up" },
-    { label: "Total Scans", value: "45,892", change: "+15.3%", trend: "up" },
-    { label: "Avg Session", value: "12m 34s", change: "-2.1%", trend: "down" }
-  ];
+  useEffect(() => {
+    loadUsers();
+  }, [currentPage, searchTerm, filters]);
 
-  const userGrowth = [
-    { month: "Jan", users: 8420 },
-    { month: "Feb", users: 9150 },
-    { month: "Mar", users: 10240 },
-    { month: "Apr", users: 11680 },
-    { month: "May", users: 12458 }
-  ];
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: currentPage,
+        page_size: usersPerPage,
+      };
 
-  const scansByType = [
-    { type: "Disease Detection", count: 25640, percentage: 56 },
-    { type: "Price Prediction", count: 11350, percentage: 25 },
-    { type: "Weather Advisory", count: 6780, percentage: 15 },
-    { type: "AI Chatbot", count: 2122, percentage: 4 }
-  ];
+      if (searchTerm) params.search = searchTerm;
+      if (filters.is_verified !== null) params.is_verified = filters.is_verified;
+      if (filters.is_active !== null) params.is_active = filters.is_active;
+      if (filters.is_staff !== null) params.is_staff = filters.is_staff;
 
-  const topLocations = [
-    { location: "Kathmandu", users: 3245, percentage: 26 },
-    { location: "Pokhara", users: 2180, percentage: 17.5 },
-    { location: "Chitwan", users: 1890, percentage: 15.2 },
-    { location: "Lalitpur", users: 1650, percentage: 13.2 },
-    { location: "Rupandehi", users: 1420, percentage: 11.4 }
-  ];
+      const response = await getUsers(params);
+      
+      setUsers(response.results || []);
+      setTotalCount(response.count || 0);
+      setTotalPages(Math.ceil((response.count || 0) / usersPerPage));
+    } catch (error) {
+      console.error('Failed to load users:', error);
+      alert('Failed to load users. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const revenueByMonth = [
-    { month: "Jan", revenue: 1200000 },
-    { month: "Feb", revenue: 1450000 },
-    { month: "Mar", revenue: 1680000 },
-    { month: "Apr", revenue: 1920000 },
-    { month: "May", revenue: 2150000 }
-  ];
+  const handleToggleStatus = async (userId) => {
+    const user = users.find(u => u.id === userId);
+    const action = user?.is_active ? 'deactivate' : 'activate';
+    
+    if (!window.confirm(`Are you sure you want to ${action} this user?`)) {
+      return;
+    }
+
+    setActionLoading(userId);
+    try {
+      const response = await toggleUserStatus(userId);
+      
+      // Update user in list
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, is_active: response.is_active } : u
+      ));
+      
+      alert(response.message || `User ${action}d successfully!`);
+    } catch (error) {
+      console.error('Failed to toggle user status:', error);
+      alert(error.response?.data?.message || 'Failed to update user status.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleVerifyUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to verify this user?')) {
+      return;
+    }
+
+    setActionLoading(userId);
+    try {
+      const response = await verifyUser(userId);
+      
+      // Update user in list
+      setUsers(users.map(u => 
+        u.id === userId ? { ...u, is_verified: response.is_verified } : u
+      ));
+      
+      alert(response.message || 'User verified successfully!');
+    } catch (error) {
+      console.error('Failed to verify user:', error);
+      alert(error.response?.data?.message || 'Failed to verify user.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleDeleteUser = async (userId) => {
+    if (!window.confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
+      return;
+    }
+
+    setActionLoading(userId);
+    try {
+      await deleteUser(userId);
+      
+      // Remove user from list
+      setUsers(users.filter(u => u.id !== userId));
+      setTotalCount(prev => prev - 1);
+      
+      alert('User deleted successfully!');
+      
+      // Reload if current page is now empty
+      if (users.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+      }
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      alert(error.response?.data?.message || 'Failed to delete user.');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const handleExport = () => {
+    alert('Export functionality coming soon!');
+  };
 
   return (
-    <AdminLayout>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-2">
-              Reports & Analytics
-            </h1>
-            <p className="text-muted-foreground">
-              Comprehensive insights into platform performance.
-            </p>
-          </div>
-          <Select value={timeRange} onValueChange={setTimeRange}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
-              <SelectItem value="90d">Last 90 days</SelectItem>
-              <SelectItem value="1y">Last year</SelectItem>
-            </SelectContent>
-          </Select>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
+            <Users className="w-8 h-8 text-indigo-600" />
+            User Management
+          </h1>
+          <p className="text-slate-500 mt-2">Manage and monitor all users in the system</p>
         </div>
-
-        {/* Overview Stats */}
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {overviewStats.map((stat, index) => (
-            <Card key={index}>
-              <CardContent className="p-6">
-                <p className="text-sm text-muted-foreground mb-1">{stat.label}</p>
-                <div className="flex items-end justify-between">
-                  <p className="text-2xl sm:text-3xl font-display font-bold text-foreground">
-                    {stat.value}
-                  </p>
-                  <Badge
-                    variant="secondary"
-                    className={stat.trend === "up" ? "text-success" : "text-destructive"}
-                  >
-                    {stat.trend === "up" ? <TrendingUp className="w-3 h-3 mr-1" /> : <TrendingDown className="w-3 h-3 mr-1" />}
-                    {stat.change}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="flex gap-3">
+          <button 
+            onClick={loadUsers}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:from-indigo-700 hover:to-purple-700 transition-all shadow-md hover:shadow-lg"
+          >
+            <Download className="w-4 h-4" />
+            Export Data
+          </button>
         </div>
-
-        <Tabs defaultValue="usage" className="space-y-6">
-          <TabsList>
-            <TabsTrigger value="usage">Usage Analytics</TabsTrigger>
-            <TabsTrigger value="revenue">Revenue</TabsTrigger>
-            <TabsTrigger value="geography">Geography</TabsTrigger>
-          </TabsList>
-
-          {/* Usage Analytics Tab */}
-          <TabsContent value="usage" className="space-y-6">
-            <div className="grid lg:grid-cols-2 gap-6">
-              {/* User Growth */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>User Growth Trend</CardTitle>
-                  <CardDescription>Monthly active users over time</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {userGrowth.map((data, index) => {
-                      const maxUsers = Math.max(...userGrowth.map(d => d.users));
-                      const percentage = (data.users / maxUsers) * 100;
-                      return (
-                        <div key={index} className="space-y-2">
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="font-medium text-foreground">{data.month} 2024</span>
-                            <span className="text-muted-foreground">{data.users.toLocaleString()} users</span>
-                          </div>
-                          <div className="h-3 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-primary transition-all"
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
-
-              {/* Scans by Feature */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Feature Usage</CardTitle>
-                  <CardDescription>Scans by feature type</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {scansByType.map((scan, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-foreground">{scan.type}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">{scan.count.toLocaleString()}</span>
-                            <Badge variant="outline">{scan.percentage}%</Badge>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-primary transition-all"
-                            style={{ width: `${scan.percentage * 1.5}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Activity Timeline */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Daily Activity Pattern</CardTitle>
-                <CardDescription>Average user activity throughout the day</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-48 flex items-end justify-between gap-2">
-                  {[35, 28, 42, 56, 68, 82, 95, 88, 76, 65, 58, 48, 52, 62, 71, 78, 72, 58, 45, 38, 42, 48, 40, 32].map((height, index) => (
-                    <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                      <div
-                        className="w-full bg-gradient-primary rounded-t transition-all hover:opacity-80 cursor-pointer"
-                        style={{ height: `${height}%` }}
-                        title={`${index}:00 - ${height}% activity`}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-between mt-4 text-xs text-muted-foreground">
-                  <span>00:00</span>
-                  <span>06:00</span>
-                  <span>12:00</span>
-                  <span>18:00</span>
-                  <span>24:00</span>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Revenue Tab */}
-          <TabsContent value="revenue" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Monthly Revenue</CardTitle>
-                <CardDescription>Revenue growth over the last 5 months</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {revenueByMonth.map((data, index) => {
-                    const maxRevenue = Math.max(...revenueByMonth.map(d => d.revenue));
-                    const percentage = (data.revenue / maxRevenue) * 100;
-                    return (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-foreground">{data.month} 2024</span>
-                          <span className="text-muted-foreground">NPR {(data.revenue / 1000000).toFixed(2)}M</span>
-                        </div>
-                        <div className="h-3 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-accent to-accent/70 transition-all"
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid sm:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Revenue Sources</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { source: "Premium Subscriptions", amount: 5200000, percentage: 62 },
-                      { source: "API Usage", amount: 2100000, percentage: 25 },
-                      { source: "Advertisements", amount: 1100000, percentage: 13 }
-                    ].map((item, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium text-foreground">{item.source}</span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">NPR {(item.amount / 1000000).toFixed(1)}M</span>
-                            <Badge variant="outline">{item.percentage}%</Badge>
-                          </div>
-                        </div>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-accent to-accent/70 transition-all"
-                            style={{ width: `${item.percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Conversion Metrics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-4">
-                    {[
-                      { metric: "Free to Premium", rate: "18.5%", change: "+2.3%" },
-                      { metric: "Trial Conversion", rate: "42.8%", change: "+5.1%" },
-                      { metric: "Renewal Rate", rate: "87.3%", change: "+1.8%" },
-                      { metric: "Churn Rate", rate: "3.2%", change: "-0.5%" }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium text-foreground">{item.metric}</p>
-                          <p className="text-2xl font-display font-bold text-foreground mt-1">{item.rate}</p>
-                        </div>
-                        <Badge variant="secondary" className="text-success">
-                          {item.change}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-
-          {/* Geography Tab */}
-          <TabsContent value="geography" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Users by Location</CardTitle>
-                <CardDescription>Top 5 locations with most users</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {topLocations.map((location, index) => (
-                    <div key={index} className="space-y-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-foreground">#{index + 1}</span>
-                          <span className="font-medium text-foreground">{location.location}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">{location.users.toLocaleString()} users</span>
-                          <Badge variant="outline">{location.percentage}%</Badge>
-                        </div>
-                      </div>
-                      <div className="h-3 bg-muted rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-gradient-primary transition-all"
-                          style={{ width: `${location.percentage * 3}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid sm:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Regional Growth</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[
-                      { region: "Province 1", growth: "+15.2%", users: 2450 },
-                      { region: "Province 2", growth: "+22.8%", users: 1890 },
-                      { region: "Bagmati", growth: "+18.5%", users: 4200 },
-                      { region: "Gandaki", growth: "+12.3%", users: 2180 },
-                      { region: "Lumbini", growth: "+19.7%", users: 1650 }
-                    ].map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
-                        <div>
-                          <p className="font-medium text-foreground">{item.region}</p>
-                          <p className="text-sm text-muted-foreground">{item.users.toLocaleString()} users</p>
-                        </div>
-                        <Badge variant="secondary" className="text-success">
-                          {item.growth}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle>Urban vs Rural</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    <div className="text-center">
-                      <div className="inline-flex gap-8">
-                        <div>
-                          <p className="text-4xl font-display font-bold text-foreground">68%</p>
-                          <p className="text-sm text-muted-foreground mt-1">Urban</p>
-                        </div>
-                        <div>
-                          <p className="text-4xl font-display font-bold text-foreground">32%</p>
-                          <p className="text-sm text-muted-foreground mt-1">Rural</p>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="h-4 bg-muted rounded-full overflow-hidden flex">
-                      <div className="bg-gradient-primary" style={{ width: "68%" }} />
-                      <div className="bg-secondary" style={{ width: "32%" }} />
-                    </div>
-                    <p className="text-sm text-muted-foreground text-center">
-                      8,458 urban users | 3,999 rural users
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          </TabsContent>
-        </Tabs>
       </div>
-    </AdminLayout>
+
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <SummaryCard
+          icon={<Users className="w-5 h-5 text-blue-600" />}
+          label="Total Users"
+          value={totalCount}
+          bgColor="bg-blue-50"
+          borderColor="border-blue-200"
+        />
+        <SummaryCard
+          icon={<UserCheck className="w-5 h-5 text-green-600" />}
+          label="Verified"
+          value={users.filter(u => u.is_verified).length}
+          bgColor="bg-green-50"
+          borderColor="border-green-200"
+        />
+        <SummaryCard
+          icon={<UserX className="w-5 h-5 text-amber-600" />}
+          label="Unverified"
+          value={users.filter(u => !u.is_verified).length}
+          bgColor="bg-amber-50"
+          borderColor="border-amber-200"
+        />
+        <SummaryCard
+          icon={<Shield className="w-5 h-5 text-purple-600" />}
+          label="Staff"
+          value={users.filter(u => u.is_staff).length}
+          bgColor="bg-purple-50"
+          borderColor="border-purple-200"
+        />
+      </div>
+
+      {/* Search and Filters */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
+        <div className="flex flex-col lg:flex-row gap-4">
+          {/* Search */}
+          <div className="flex-1 relative">
+            <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              placeholder="Search by name, email, or phone..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // Reset to first page on search
+              }}
+              className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+            />
+          </div>
+
+          {/* Filter Toggle */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+              showFilters
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+            }`}
+          >
+            <Filter className="w-5 h-5" />
+            Filters
+          </button>
+        </div>
+
+        {/* Filter Options */}
+        {showFilters && (
+          <div className="mt-4 pt-4 border-t border-slate-200 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <FilterSelect
+              label="Verification Status"
+              value={filters.is_verified}
+              onChange={(val) => {
+                setFilters({ ...filters, is_verified: val });
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: null, label: 'All' },
+                { value: true, label: 'Verified' },
+                { value: false, label: 'Unverified' },
+              ]}
+            />
+            <FilterSelect
+              label="Active Status"
+              value={filters.is_active}
+              onChange={(val) => {
+                setFilters({ ...filters, is_active: val });
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: null, label: 'All' },
+                { value: true, label: 'Active' },
+                { value: false, label: 'Inactive' },
+              ]}
+            />
+            <FilterSelect
+              label="User Type"
+              value={filters.is_staff}
+              onChange={(val) => {
+                setFilters({ ...filters, is_staff: val });
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: null, label: 'All' },
+                { value: true, label: 'Staff' },
+                { value: false, label: 'Regular' },
+              ]}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Users Table */}
+      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
+        {loading ? (
+          <div className="p-12 text-center">
+            <Loader className="w-12 h-12 text-indigo-600 mx-auto animate-spin" />
+            <p className="mt-4 text-slate-600">Loading users...</p>
+          </div>
+        ) : users.length === 0 ? (
+          <div className="p-12 text-center">
+            <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-600">No users found</p>
+            {(searchTerm || filters.is_verified !== null || filters.is_active !== null || filters.is_staff !== null) && (
+              <button 
+                onClick={() => {
+                  setSearchTerm('');
+                  setFilters({ is_verified: null, is_active: null, is_staff: null });
+                }}
+                className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">User</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Role</th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">Joined</th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {users.map((user) => (
+                    <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
+                            {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-slate-900">{user.full_name}</p>
+                            <p className="text-sm text-slate-500">ID: {user.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Mail className="w-4 h-4" />
+                            {user.email}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <Phone className="w-4 h-4" />
+                            {user.phone}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-2">
+                          <StatusBadge
+                            active={user.is_verified}
+                            activeLabel="Verified"
+                            inactiveLabel="Unverified"
+                            activeColor="green"
+                            inactiveColor="amber"
+                          />
+                          <StatusBadge
+                            active={user.is_active}
+                            activeLabel="Active"
+                            inactiveLabel="Inactive"
+                            activeColor="blue"
+                            inactiveColor="gray"
+                          />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-2">
+                          {user.is_staff && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                              <Shield className="w-3 h-3" />
+                              Staff
+                            </span>
+                          )}
+                          {user.has_farmer_profile && (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
+                              🌾 Farmer
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                          <Calendar className="w-4 h-4" />
+                          <div>
+                            <p>{formatDate(user.date_joined)}</p>
+                            <p className="text-xs text-slate-400">{user.days_active} days</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center justify-end gap-2">
+                          {!user.is_verified && (
+                            <button
+                              onClick={() => handleVerifyUser(user.id)}
+                              disabled={actionLoading === user.id}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50"
+                              title="Verify User"
+                            >
+                              {actionLoading === user.id ? (
+                                <Loader className="w-5 h-5 animate-spin" />
+                              ) : (
+                                <CheckCircle className="w-5 h-5" />
+                              )}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleToggleStatus(user.id)}
+                            disabled={actionLoading === user.id}
+                            className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                              user.is_active
+                                ? 'text-amber-600 hover:bg-amber-50'
+                                : 'text-blue-600 hover:bg-blue-50'
+                            }`}
+                            title={user.is_active ? 'Deactivate' : 'Activate'}
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader className="w-5 h-5 animate-spin" />
+                            ) : user.is_active ? (
+                              <XCircle className="w-5 h-5" />
+                            ) : (
+                              <CheckCircle className="w-5 h-5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => setSelectedUser(user)}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-5 h-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            disabled={actionLoading === user.id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            title="Delete User"
+                          >
+                            {actionLoading === user.id ? (
+                              <Loader className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-5 h-5" />
+                            )}
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-slate-600">
+                  Showing {(currentPage - 1) * usersPerPage + 1} to {Math.min(currentPage * usersPerPage, totalCount)} of {totalCount} users
+                </p>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1 || loading}
+                    className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <span className="px-4 py-2 text-sm font-medium text-slate-700">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages || loading}
+                    className="p-2 border border-slate-300 rounded-lg hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* User Detail Modal */}
+      {selectedUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50" onClick={() => setSelectedUser(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+              <h3 className="text-xl font-bold text-slate-900">User Details</h3>
+              <button
+                onClick={() => setSelectedUser(null)}
+                className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+                    {selectedUser.full_name?.charAt(0)?.toUpperCase() || 'U'}
+                  </div>
+                  <div>
+                    <h4 className="text-2xl font-bold text-slate-900">{selectedUser.full_name}</h4>
+                    <p className="text-slate-500">{selectedUser.email}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-200">
+                  <InfoItem label="Phone" value={selectedUser.phone} />
+                  <InfoItem label="User ID" value={`#${selectedUser.id}`} />
+                  <InfoItem label="Days Active" value={`${selectedUser.days_active} days`} />
+                  <InfoItem label="Joined" value={formatDate(selectedUser.date_joined)} />
+                  <InfoItem label="Last Login" value={formatDate(selectedUser.last_login)} />
+                </div>
+
+                <div className="pt-4 border-t border-slate-200">
+                  <h5 className="font-semibold text-slate-900 mb-3">Status</h5>
+                  <div className="flex flex-wrap gap-2">
+                    <StatusBadge active={selectedUser.is_verified} activeLabel="Verified" inactiveLabel="Unverified" activeColor="green" inactiveColor="amber" />
+                    <StatusBadge active={selectedUser.is_active} activeLabel="Active" inactiveLabel="Inactive" activeColor="blue" inactiveColor="gray" />
+                    {selectedUser.is_staff && <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">Staff</span>}
+                    {selectedUser.is_superuser && <span className="px-3 py-1 bg-red-100 text-red-700 text-sm font-medium rounded-full">Superuser</span>}
+                    {selectedUser.has_farmer_profile && <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-medium rounded-full">Farmer Profile</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
-}
+};
+
+// Helper Components
+const SummaryCard = ({ icon, label, value, bgColor, borderColor }) => (
+  <div className={`${bgColor} border ${borderColor} rounded-xl p-4`}>
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-slate-600 mb-1">{label}</p>
+        <p className="text-2xl font-bold text-slate-900">{value}</p>
+      </div>
+      <div className="p-2 bg-white rounded-lg">{icon}</div>
+    </div>
+  </div>
+);
+
+const FilterSelect = ({ label, value, onChange, options }) => (
+  <div>
+    <label className="block text-sm font-medium text-slate-700 mb-2">{label}</label>
+    <select
+      value={value === null ? '' : value}
+      onChange={(e) => onChange(e.target.value === '' ? null : e.target.value === 'true')}
+      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+    >
+      {options.map((opt) => (
+        <option key={String(opt.value)} value={opt.value === null ? '' : opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  </div>
+);
+
+const StatusBadge = ({ active, activeLabel, inactiveLabel, activeColor, inactiveColor }) => {
+  const colors = {
+    green: 'bg-green-100 text-green-700',
+    amber: 'bg-amber-100 text-amber-700',
+    blue: 'bg-blue-100 text-blue-700',
+    gray: 'bg-slate-100 text-slate-700',
+  };
+
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
+      active ? colors[activeColor] : colors[inactiveColor]
+    }`}>
+      {active ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+      {active ? activeLabel : inactiveLabel}
+    </span>
+  );
+};
+
+const InfoItem = ({ label, value }) => (
+  <div>
+    <p className="text-sm font-medium text-slate-600">{label}</p>
+    <p className="text-lg font-semibold text-slate-900 mt-1">{value || 'N/A'}</p>
+  </div>
+);
+
+export default UserManagement;

@@ -17,14 +17,17 @@ import ProfilePage from "@/pages/ProfilePage";
 // Admin Pages
 import AdminLogin from "@/pages/Admin/AdminLogin";
 import AdminDashboard from "@/pages/Admin/AdminDashboard";
+import AdminLayout from "@/components/AdminLayout";
 import UserManagement from "@/pages/Admin/UserManagement";
-import Analytics from "@/pages/Admin/Analytics";
 import AdminSettings from "@/pages/Admin/AdminSettings";
+import ChatConversationManager from "@/pages/Admin/ChatConversationManager";
+import PricePredictorManager from "@/pages/Admin/PricePredictorManager";
+import ScanResultManager from "@/pages/Admin/ScanResultManager";
+import ProtectedAdminRoute from "@/pages/Admin/ProtectedAdminRoute";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import ProtectedAdminRoute from "@/pages/admin/ProtectedAdminRoute";
 
 function App() {
   return (
@@ -96,36 +99,27 @@ function App() {
           {/* Admin Login - Public */}
           <Route path="/admin/login" element={<AdminLogin />} />
 
-          {/* Protected Admin Routes */}
+          {/* Protected Admin Routes with Layout */}
           <Route
-            path="/admin/dashboard"
+            path="/admin/*"
             element={
               <ProtectedAdminRoute>
-                <AdminDashboard />
-              </ProtectedAdminRoute>
-            }
-          />
-          <Route
-            path="/admin/users"
-            element={
-              <ProtectedAdminRoute>
-                <UserManagement />
-              </ProtectedAdminRoute>
-            }
-          />
-          <Route
-            path="/admin/analytics"
-            element={
-              <ProtectedAdminRoute>
-                <Analytics />
-              </ProtectedAdminRoute>
-            }
-          />
-          <Route
-            path="/admin/settings"
-            element={
-              <ProtectedAdminRoute>
-                <AdminSettings />
+                <AdminLayout>
+                  <Routes>
+                    <Route path="dashboard" element={<AdminDashboard />} />
+                    <Route path="users" element={<UserManagement />} />
+                    <Route path="chat-conversations" element={<ChatConversationManager />} />
+                    <Route path="scan-results" element={<ScanResultManager />} />
+                    <Route path="price-predictor" element={<PricePredictorManager />} />
+                    <Route path="settings" element={<AdminSettings />} />
+
+                    {/* Redirect /admin to /admin/dashboard */}
+                    <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
+
+                    {/* Catch all within /admin/* */}
+                    <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
+                  </Routes>
+                </AdminLayout>
               </ProtectedAdminRoute>
             }
           />
