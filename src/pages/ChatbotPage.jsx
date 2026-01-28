@@ -1,3 +1,5 @@
+import { sendChatMessage } from "@/api/chat";
+import { v4 as uuidv4 } from "uuid";
 import { useState, useRef, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -17,6 +19,7 @@ export default function ChatbotPage() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef(null);
+  const [sessionId] = useState(() => uuidv4());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,49 +36,44 @@ export default function ChatbotPage() {
     "How to improve soil quality?"
   ];
 
-  // Mock AI responses
-  const getAIResponse = (question) => {
-    const responses = {
-      default: "Based on your query, here are some recommendations:\n\n1. Monitor your crops regularly for early signs\n2. Maintain proper irrigation schedules\n3. Use balanced fertilization\n4. Consult with local agricultural experts for specific conditions\n\nWould you like more detailed information on any of these points?",
-      disease: "For disease prevention and management:\n\n• Practice crop rotation\n• Use disease-resistant varieties\n• Remove infected plant parts immediately\n• Apply appropriate fungicides when needed\n• Maintain proper plant spacing for air circulation\n\nWould you like me to analyze a specific crop disease?",
-      fertilizer: "For optimal fertilization:\n\n• Conduct soil testing first\n• Apply NPK based on crop requirements\n• Use organic compost for soil health\n• Split fertilizer applications during growth stages\n• Avoid over-fertilization which can harm crops\n\nWhat crop are you growing?",
-      irrigation: "For efficient irrigation:\n\n• Water early morning or late evening\n• Use drip irrigation to save water\n• Check soil moisture before watering\n• Adjust based on weather conditions\n• Ensure proper drainage to prevent waterlogging\n\nNeed weather-based irrigation advice?"
-    };
-
-    const lowerQuestion = question.toLowerCase();
-    if (lowerQuestion.includes("disease") || lowerQuestion.includes("blast") || lowerQuestion.includes("pest")) {
-      return responses.disease;
-    } else if (lowerQuestion.includes("fertilizer") || lowerQuestion.includes("nutrient")) {
-      return responses.fertilizer;
-    } else if (lowerQuestion.includes("water") || lowerQuestion.includes("irrigation")) {
-      return responses.irrigation;
-    }
-    return responses.default;
-  };
-
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage = {
       role: "user",
       content: input,
-      timestamp: new Date()
+      timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
 
-    // Simulate AI thinking time
-    setTimeout(() => {
-      const aiResponse = {
+    try {
+      const data = await sendChatMessage({
+        session_id: sessionId,
+        message: userMessage.content,
+      });
+
+      const aiMessage = {
         role: "assistant",
-        content: getAIResponse(input),
-        timestamp: new Date()
+        content: data.response,
+        timestamp: new Date(data.timestamp),
       };
-      setMessages(prev => [...prev, aiResponse]);
+
+      setMessages((prev) => [...prev, aiMessage]);
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Sorry, something went wrong. Please try again.",
+          timestamp: new Date(),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   const handleSuggestedQuestion = (question) => {
