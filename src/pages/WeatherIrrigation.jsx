@@ -1,11 +1,10 @@
-import { getCurrentWeather } from "@/api/weather";
-import { getUserCoordinates } from "@/utils/useGeolocation";
 import { useState, useEffect } from "react";
+import { fetchWeatherAndForecast } from "@/api/weather";
+import { fetchCropSuggestion } from "@/api/cropSuggestion";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import {
   CloudRain,
   Droplets,
@@ -13,125 +12,108 @@ import {
   Thermometer,
   Sun,
   Cloud,
+  Calendar,
   AlertCircle,
   CheckCircle2,
-  Sprout,
-  Calendar
+  Sprout
 } from "lucide-react";
 
 export default function WeatherIrrigation() {
   const [cropType, setCropType] = useState("rice");
   const [growthStage, setGrowthStage] = useState("vegetative");
   const [recommendations, setRecommendations] = useState(null);
-  const [realWeather, setRealWeather] = useState(null);
-  const [loadingWeather, setLoadingWeather] = useState(false);
+  const [weatherData, setWeatherData] = useState(null);
+  const [loadingWeather, setLoadingWeather] = useState(true);
+  const [weatherError, setWeatherError] = useState(null);
+  const [loadingRecommendation, setLoadingRecommendation] = useState(false);
+  const [recommendationError, setRecommendationError] = useState(null);
 
-  // fetch from api 
+
   useEffect(() => {
-    const loadWeather = async () => {
-      setLoadingWeather(true);
-
+    async function loadWeather() {
       try {
-        const coords = await getUserCoordinates();
-
-        const data = await getCurrentWeather({
-          lat: coords?.lat,
-          lon: coords?.lon,
-        });
-
-        if (!data?.error) {
-          setRealWeather(data);
-        }
+        setLoadingWeather(true);
+        const data = await fetchWeatherAndForecast();
+        setWeatherData(data);
       } catch (error) {
-        console.error("Failed to load weather", error);
+        setWeatherError("Failed to load weather data");
       } finally {
         setLoadingWeather(false);
       }
-    };
+    }
 
     loadWeather();
   }, []);
 
-  // Mock weather data
-  const weatherData = realWeather
-    ? {
-      temperature: realWeather.current.temperature,
-      humidity: realWeather.current.humidity,
-      rainfall: realWeather.current.rainfall,
-      windSpeed: realWeather.current.wind_speed,
-      condition: realWeather.current.condition,
-      forecast: realWeather.forecast.map((day) => ({
-        day: day.day,
-        temp: day.temperature,
-        condition: day.condition,
-        rain: day.rain_probability,
-      })),
-    }
-    : {
-      temperature: 28,
-      humidity: 75,
-      rainfall: 12,
-      windSpeed: 8,
-      condition: "Partly Cloudy",
-      forecast: [
-        { day: "Today", temp: 28, condition: "Cloudy", rain: 60 },
-        { day: "Tomorrow", temp: 30, condition: "Sunny", rain: 10 },
-        { day: "Wed", temp: 27, condition: "Rainy", rain: 85 },
-        { day: "Thu", temp: 29, condition: "Cloudy", rain: 40 },
-        { day: "Fri", temp: 31, condition: "Sunny", rain: 5 },
-      ],
-    };
-
-  useEffect(() => {
-    // Mock recommendation generation
-    const generateRecommendations = () => {
-      const recommendations = {
-        irrigation: {
-          status: "reduce",
-          title: "Reduce Irrigation",
-          description: "Heavy rainfall expected in next 2 days. Reduce watering to prevent waterlogging.",
-          amount: "Apply 10-15mm of water only if soil is dry",
-          timing: "Early morning (6-8 AM) for best absorption",
-          frequency: "Every 3-4 days"
-        },
-        fertilization: {
-          type: "Nitrogen-rich fertilizer",
-          amount: "40 kg per hectare",
-          method: "Split application recommended",
-          timing: "Apply before expected rain for better absorption",
-          notes: "Current vegetative stage requires increased nitrogen for leaf development"
-        },
-        alerts: [
-          {
-            type: "warning",
-            title: "Heavy Rain Alert",
-            message: "85% chance of heavy rain on Wednesday. Ensure proper drainage."
-          },
-          {
-            type: "info",
-            title: "Optimal Conditions",
-            message: "Thursday-Friday ideal for foliar spray applications."
-          }
-        ]
-      };
-      setRecommendations(recommendations);
-    };
-
-    generateRecommendations();
-  }, [cropType, growthStage]);
-
-  const weatherStats = [
-    { label: "Temperature", value: `${weatherData.temperature}°C`, icon: Thermometer, color: "text-chart-5" },
-    { label: "Humidity", value: `${weatherData.humidity}%`, icon: Droplets, color: "text-chart-4" },
-    { label: "Rainfall", value: `${weatherData.rainfall}mm`, icon: CloudRain, color: "text-primary" },
-    { label: "Wind Speed", value: `${weatherData.windSpeed} km/h`, icon: Wind, color: "text-chart-2" }
-  ];
+  const weatherStats = weatherData
+    ? [
+      {
+        label: "Temperature",
+        value: `${weatherData.current.temperature}°C`,
+        icon: Thermometer,
+        color: "text-chart-5",
+      },
+      {
+        label: "Humidity",
+        value: `${weatherData.current.humidity}%`,
+        icon: Droplets,
+        color: "text-chart-4",
+      },
+      {
+        label: "Rainfall",
+        value: `${weatherData.current.rainfall}mm`,
+        icon: CloudRain,
+        color: "text-primary",
+      },
+      {
+        label: "Wind Speed",
+        value: `${weatherData.current.wind_speed} km/h`,
+        icon: Wind,
+        color: "text-chart-2",
+      },
+    ]
+    : [];
 
   const getWeatherIcon = (condition) => {
     if (condition.includes("Sunny")) return Sun;
     if (condition.includes("Rain")) return CloudRain;
     return Cloud;
   };
+
+  if (loadingWeather) {
+    return (
+      <DashboardLayout>
+        <p className="text-muted-foreground">Loading weather data...</p>
+      </DashboardLayout>
+    );
+  }
+
+  if (weatherError) {
+    return (
+      <DashboardLayout>
+        <p className="text-destructive">{weatherError}</p>
+      </DashboardLayout>
+    );
+  }
+
+  async function loadCropRecommendation() {
+    try {
+      setLoadingRecommendation(true);
+      setRecommendationError(null);
+
+      const data = await fetchCropSuggestion({
+        location: "Kathmandu", // for now
+        cropName: cropType,
+        growthStage: growthStage,
+      });
+
+      setRecommendations(data.suggestion);
+    } catch (error) {
+      setRecommendationError("Failed to generate recommendation");
+    } finally {
+      setLoadingRecommendation(false);
+    }
+  }
 
   return (
     <DashboardLayout>
@@ -150,6 +132,13 @@ export default function WeatherIrrigation() {
         <Card>
           <CardContent className="p-6">
             <div className="grid sm:grid-cols-2 gap-4">
+              <Button
+                className="mt-4"
+                onClick={loadCropRecommendation}
+              >
+                Get AI Recommendation
+              </Button>
+
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">Crop Type</label>
                 <Select value={cropType} onValueChange={setCropType}>
@@ -191,7 +180,7 @@ export default function WeatherIrrigation() {
               <CloudRain className="w-5 h-5 text-primary" />
               Current Weather
             </CardTitle>
-            <CardDescription>Live weather data for {realWeather?.city || "Kathmandu"}</CardDescription>
+            <CardDescription>Live weather data for Kathmandu</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">

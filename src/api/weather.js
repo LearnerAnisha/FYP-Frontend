@@ -1,16 +1,14 @@
-import apiClient from "@/api/client";
+import apiClient from "./client";
+import { getUserCoordinates } from "@/utils/useGeolocation";
 
-export async function getCurrentWeather({ lat, lon }) {
-  const params = new URLSearchParams();
+export async function fetchWeatherAndForecast() {
+  const coords = await getUserCoordinates();
+  if (!coords) return null;
 
-  if (lat && lon) {
-    params.append("lat", lat);
-    params.append("lon", lon);
-  }
+  const res = await apiClient.post("/api/weather/forecast/", {
+    lat: coords.lat,
+    lon: coords.lon,
+  });
 
-  const response = await apiClient.get(
-    `/api/weather/current/?${params.toString()}`
-  );
-
-  return response.data;
+  return res.data;
 }
