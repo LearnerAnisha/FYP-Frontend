@@ -1,21 +1,16 @@
 import React, { useState, useEffect } from 'react';
+import { getUsers, toggleUserStatus, verifyUser, deleteUser } from "@/api/admin";
 import {
-  Users, Search, Filter, MoreVertical, Edit, Trash2, 
+  Users, Search, Filter, MoreVertical, Edit, Trash2,
   CheckCircle, XCircle, Mail, Phone, Calendar, Shield,
   ChevronLeft, ChevronRight, Download, UserCheck, UserX
 } from 'lucide-react';
 
-// Mock data
-const mockUsers = [
-  { id: 1, full_name: 'John Doe', email: 'john@example.com', phone: '+1234567890', is_verified: true, is_active: true, is_staff: false, date_joined: '2024-01-15', has_farmer_profile: true, days_active: 42 },
-  { id: 2, full_name: 'Jane Smith', email: 'jane@example.com', phone: '+1234567891', is_verified: true, is_active: true, is_staff: true, date_joined: '2024-01-10', has_farmer_profile: false, days_active: 47 },
-  { id: 3, full_name: 'Bob Wilson', email: 'bob@example.com', phone: '+1234567892', is_verified: false, is_active: true, is_staff: false, date_joined: '2024-02-01', has_farmer_profile: true, days_active: 26 },
-  { id: 4, full_name: 'Alice Brown', email: 'alice@example.com', phone: '+1234567893', is_verified: true, is_active: false, is_staff: false, date_joined: '2024-01-20', has_farmer_profile: false, days_active: 37 },
-  { id: 5, full_name: 'Charlie Davis', email: 'charlie@example.com', phone: '+1234567894', is_verified: true, is_active: true, is_staff: false, date_joined: '2024-02-10', has_farmer_profile: true, days_active: 17 },
-];
-
 const UserManagement = () => {
-  const [users, setUsers] = useState(mockUsers);
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [filters, setFilters] = useState({
     is_verified: null,
@@ -29,11 +24,11 @@ const UserManagement = () => {
 
   // Filter users
   const filteredUsers = users.filter(user => {
-    const matchesSearch = 
+    const matchesSearch =
       user.full_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       user.phone.includes(searchTerm);
-    
+
     const matchesVerified = filters.is_verified === null || user.is_verified === filters.is_verified;
     const matchesActive = filters.is_active === null || user.is_active === filters.is_active;
     const matchesStaff = filters.is_staff === null || user.is_staff === filters.is_staff;
@@ -42,26 +37,61 @@ const UserManagement = () => {
   });
 
   // Pagination
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
-  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const currentUsers = users;
+  const totalPages = Math.ceil(totalCount / usersPerPage);
 
-  const handleToggleStatus = (userId) => {
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, is_active: !user.is_active } : user
-    ));
+  const handleToggleStatus = async (userId) => {
+    try {
+      await toggleUserStatus(userId);
+      fetchUsers(); // re-fetch fresh data
+    } catch (err) {
+      alert("Failed to update status");
+    }
   };
 
-  const handleVerifyUser = (userId) => {
-    setUsers(users.map(user => 
-      user.id === userId ? { ...user, is_verified: true } : user
-    ));
+  const handleVerifyUser = async (userId) => {
+    try {
+      await verifyUser(userId);
+      fetchUsers();
+    } catch (err) {
+      alert("Failed to verify user");
+    }
   };
 
-  const handleDeleteUser = (userId) => {
-    if (confirm('Are you sure you want to delete this user?')) {
-      setUsers(users.filter(user => user.id !== userId));
+  const handleDeleteUser = async (userId) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    try {
+      await deleteUser(userId);
+      fetchUsers();
+    } catch (err) {
+      alert("Failed to delete user");
+    }
+  };
+
+  useEffect(() => {
+    fetchUsers();
+  }, [currentPage, searchTerm, filters]);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const data = await getUsers({
+        page: currentPage,
+        search: searchTerm,
+        is_verified: filters.is_verified,
+        is_active: filters.is_active,
+        is_staff: filters.is_staff,
+      });
+
+      // if DRF pagination
+      setUsers(data.results);
+      setTotalCount(data.count);
+
+    } catch (err) {
+      setError("Failed to load users");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,11 +161,10 @@ const UserManagement = () => {
             {/* Filter Toggle */}
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
-                showFilters
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-              }`}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${showFilters
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
             >
               <Filter className="w-5 h-5" />
               Filters
@@ -194,12 +223,34 @@ const UserManagement = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
-                {currentUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+
+                {/* 1. Loading */}
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-slate-500">
+                      Loading users...
+                    </td>
+                  </tr>
+                )}
+
+                {/* 2. No users */}
+                {!loading && users.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="p-6 text-center text-slate-500">
+                      No users found
+                    </td>
+                  </tr>
+                )}
+
+                {/* 3. Users */}
+                {!loading && currentUsers.map((user) => (
+                  <tr key={user.id} className="group hover:bg-slate-50 transition-colors">
+
+                    {/* USER */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-semibold">
-                          {user.full_name.charAt(0)}
+                        <div className="w-10 h-10 bg-indigo-600 text-white rounded-full flex items-center justify-center font-semibold">
+                          {user.full_name?.charAt(0)}
                         </div>
                         <div>
                           <p className="font-semibold text-slate-900">{user.full_name}</p>
@@ -207,96 +258,113 @@ const UserManagement = () => {
                         </div>
                       </div>
                     </td>
+
+                    {/* CONTACT */}
                     <td className="px-6 py-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <div className="space-y-1 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
                           <Mail className="w-4 h-4" />
                           {user.email}
                         </div>
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
                           <Phone className="w-4 h-4" />
-                          {user.phone}
+                          {user.phone || "—"}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-2">
-                        <StatusBadge
-                          active={user.is_verified}
-                          activeLabel="Verified"
-                          inactiveLabel="Unverified"
-                          activeColor="green"
-                          inactiveColor="amber"
-                        />
-                        <StatusBadge
-                          active={user.is_active}
-                          activeLabel="Active"
-                          inactiveLabel="Inactive"
-                          activeColor="blue"
-                          inactiveColor="gray"
-                        />
-                      </div>
+
+                    {/* STATUS */}
+                    <td className="px-6 py-4 space-y-1">
+                      <StatusBadge
+                        active={user.is_verified}
+                        activeLabel="Verified"
+                        inactiveLabel="Unverified"
+                        activeColor="green"
+                        inactiveColor="amber"
+                      />
+                      <StatusBadge
+                        active={user.is_active}
+                        activeLabel="Active"
+                        inactiveLabel="Inactive"
+                        activeColor="blue"
+                        inactiveColor="gray"
+                      />
                     </td>
+
+                    {/* ROLE */}
                     <td className="px-6 py-4">
-                      <div className="flex flex-col gap-2">
-                        {user.is_staff && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
-                            <Shield className="w-3 h-3" />
-                            Staff
-                          </span>
-                        )}
-                        {user.has_farmer_profile && (
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">
-                            🌾 Farmer
-                          </span>
-                        )}
-                      </div>
+                      {user.is_staff && (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-100 text-purple-700 text-xs rounded-full">
+                          <Shield className="w-3 h-3" />
+                          Staff
+                        </span>
+                      )}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
+
+                    {/* JOINED */}
+                    <td className="px-6 py-4 text-sm text-slate-600">
+                      <div className="flex items-center gap-2">
                         <Calendar className="w-4 h-4" />
-                        <div>
-                          <p>{new Date(user.date_joined).toLocaleDateString()}</p>
-                          <p className="text-xs text-slate-400">{user.days_active} days</p>
-                        </div>
+                        {new Date(user.date_joined).toLocaleDateString()}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center justify-end gap-2">
-                        {!user.is_verified && (
+
+                    {/* ACTIONS */}
+                    <td className="px-6 py-4 text-right">
+                      <div className="relative flex justify-end">
+
+                        {/* THREE DOTS — default */}
+                        <MoreVertical className="w-5 h-5 text-slate-400 group-hover:hidden" />
+
+                        {/* ACTIONS — show on hover */}
+                        <div className="hidden group-hover:flex items-center gap-2">
+
+                          {/* EDIT */}
                           <button
-                            onClick={() => handleVerifyUser(user.id)}
-                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                            title="Verify User"
+                            onClick={() => setSelectedUser(user)}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                            title="Edit User"
                           >
-                            <CheckCircle className="w-5 h-5" />
+                            <Edit className="w-5 h-5" />
                           </button>
-                        )}
-                        <button
-                          onClick={() => handleToggleStatus(user.id)}
-                          className={`p-2 rounded-lg transition-colors ${
-                            user.is_active
-                              ? 'text-amber-600 hover:bg-amber-50'
-                              : 'text-blue-600 hover:bg-blue-50'
-                          }`}
-                          title={user.is_active ? 'Deactivate' : 'Activate'}
-                        >
-                          {user.is_active ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
-                        </button>
-                        <button
-                          onClick={() => setSelectedUser(user)}
-                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                          title="Edit User"
-                        >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.id)}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                          title="Delete User"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+
+                          {/* VERIFY */}
+                          {!user.is_verified && (
+                            <button
+                              onClick={() => handleVerifyUser(user.id)}
+                              className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                              title="Verify User"
+                            >
+                              <CheckCircle className="w-5 h-5" />
+                            </button>
+                          )}
+
+                          {/* ACTIVATE / DEACTIVATE */}
+                          <button
+                            onClick={() => handleToggleStatus(user.id)}
+                            className={`p-2 rounded-lg ${user.is_active
+                                ? "text-amber-600 hover:bg-amber-50"
+                                : "text-blue-600 hover:bg-blue-50"
+                              }`}
+                            title={user.is_active ? "Deactivate" : "Activate"}
+                          >
+                            {user.is_active ? (
+                              <XCircle className="w-5 h-5" />
+                            ) : (
+                              <CheckCircle className="w-5 h-5" />
+                            )}
+                          </button>
+
+                          {/* DELETE */}
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+
+                        </div>
                       </div>
                     </td>
                   </tr>
@@ -309,7 +377,10 @@ const UserManagement = () => {
           <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
             <div className="flex items-center justify-between">
               <p className="text-sm text-slate-600">
-                Showing {indexOfFirstUser + 1} to {Math.min(indexOfLastUser, filteredUsers.length)} of {filteredUsers.length} users
+                Showing {(currentPage - 1) * usersPerPage + 1}
+                {" "}to{" "}
+                {(currentPage - 1) * usersPerPage + users.length}
+                {" "}of {totalCount} users
               </p>
               <div className="flex items-center gap-2">
                 <button
@@ -377,9 +448,8 @@ const StatusBadge = ({ active, activeLabel, inactiveLabel, activeColor, inactive
   };
 
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${
-      active ? colors[activeColor] : colors[inactiveColor]
-    }`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${active ? colors[activeColor] : colors[inactiveColor]
+      }`}>
       {active ? <CheckCircle className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
       {active ? activeLabel : inactiveLabel}
     </span>
