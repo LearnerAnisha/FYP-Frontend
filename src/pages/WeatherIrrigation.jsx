@@ -28,14 +28,22 @@ export default function WeatherIrrigation() {
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
   const [recommendationError, setRecommendationError] = useState(null);
 
-
   useEffect(() => {
+    const cached = sessionStorage.getItem("weatherData");
+
+    if (cached) {
+      setWeatherData(JSON.parse(cached));
+      setLoadingWeather(false);
+      return;
+    }
+
     async function loadWeather() {
       try {
         setLoadingWeather(true);
         const data = await fetchWeatherAndForecast();
         setWeatherData(data);
-      } catch (error) {
+        sessionStorage.setItem("weatherData", JSON.stringify(data));
+      } catch {
         setWeatherError("Failed to load weather data");
       } finally {
         setLoadingWeather(false);
@@ -131,47 +139,64 @@ export default function WeatherIrrigation() {
         {/* Crop Selection */}
         <Card>
           <CardContent className="p-6">
-            <div className="grid sm:grid-cols-2 gap-4">
-              <Button
-                className="mt-4"
-                onClick={loadCropRecommendation}
-              >
-                Get AI Recommendation
-              </Button>
+            <div className="space-y-6">
 
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Crop Type</label>
-                <Select value={cropType} onValueChange={setCropType}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rice">Rice</SelectItem>
-                    <SelectItem value="wheat">Wheat</SelectItem>
-                    <SelectItem value="maize">Maize</SelectItem>
-                    <SelectItem value="tomato">Tomato</SelectItem>
-                    <SelectItem value="potato">Potato</SelectItem>
-                  </SelectContent>
-                </Select>
+              {/* Row: Crop Type & Growth Stage side by side */}
+              <div className="grid sm:grid-cols-2 gap-4">
+                {/* Crop Type */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Crop Type
+                  </label>
+                  <Select value={cropType} onValueChange={setCropType}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="rice">Rice</SelectItem>
+                      <SelectItem value="wheat">Wheat</SelectItem>
+                      <SelectItem value="maize">Maize</SelectItem>
+                      <SelectItem value="tomato">Tomato</SelectItem>
+                      <SelectItem value="potato">Potato</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Growth Stage */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-foreground">
+                    Growth Stage
+                  </label>
+                  <Select value={growthStage} onValueChange={setGrowthStage}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="seedling">Seedling</SelectItem>
+                      <SelectItem value="vegetative">Vegetative</SelectItem>
+                      <SelectItem value="flowering">Flowering</SelectItem>
+                      <SelectItem value="fruiting">Fruiting / Grain Filling</SelectItem>
+                      <SelectItem value="maturity">Maturity</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-foreground">Growth Stage</label>
-                <Select value={growthStage} onValueChange={setGrowthStage}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="seedling">Seedling</SelectItem>
-                    <SelectItem value="vegetative">Vegetative</SelectItem>
-                    <SelectItem value="flowering">Flowering</SelectItem>
-                    <SelectItem value="fruiting">Fruiting/Grain Filling</SelectItem>
-                    <SelectItem value="maturity">Maturity</SelectItem>
-                  </SelectContent>
-                </Select>
+
+              {/* Button centered below */}
+              <div className="flex justify-center">
+                <Button
+                  onClick={loadCropRecommendation}
+                  disabled={loadingRecommendation}
+                  className="px-8"
+                >
+                  {loadingRecommendation ? "Generating..." : "Get AI Recommendation"}
+                </Button>
               </div>
+
             </div>
           </CardContent>
         </Card>
+
 
         {/* Current Weather */}
         <Card>
