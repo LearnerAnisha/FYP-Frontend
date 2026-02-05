@@ -1,36 +1,29 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import {
+  getAdminProducts,
+  getAdminPriceHistory,
+  fetchAdminMarketPrices,
+  getAdminPriceStats,
+} from "@/api/admin";
 import {
   DollarSign, TrendingUp, TrendingDown, Package, MapPin,
   Calendar, Search, Plus, Edit, Trash2, Eye, RefreshCw,
   ChevronLeft, ChevronRight, BarChart3
 } from 'lucide-react';
 
-// Mock data
-const mockProducts = [
-  { id: 1, name: 'Tomato', category: 'vegetables', unit: 'kg', is_active: true, price_history_count: 45, latest_price: { price: '45.50', market: 'Kalimati Market', date: '2024-02-20' } },
-  { id: 2, name: 'Potato', category: 'vegetables', unit: 'kg', is_active: true, price_history_count: 52, latest_price: { price: '35.00', market: 'Kalimati Market', date: '2024-02-20' } },
-  { id: 3, name: 'Rice', category: 'grains', unit: 'kg', is_active: true, price_history_count: 38, latest_price: { price: '75.00', market: 'Ason Market', date: '2024-02-20' } },
-  { id: 4, name: 'Apple', category: 'fruits', unit: 'kg', is_active: true, price_history_count: 28, latest_price: { price: '180.00', market: 'Kalimati Market', date: '2024-02-20' } },
-];
-
-const mockPriceHistory = [
-  { id: 1, product: 1, product_name: 'Tomato', product_category: 'vegetables', market_name: 'Kalimati Market', location: 'Kathmandu', price: '45.50', min_price: '40.00', max_price: '50.00', date: '2024-02-20' },
-  { id: 2, product: 1, product_name: 'Tomato', product_category: 'vegetables', market_name: 'Ason Market', location: 'Kathmandu', price: '47.00', min_price: '42.00', max_price: '52.00', date: '2024-02-20' },
-  { id: 3, product: 2, product_name: 'Potato', product_category: 'vegetables', market_name: 'Kalimati Market', location: 'Kathmandu', price: '35.00', min_price: '32.00', max_price: '38.00', date: '2024-02-20' },
-];
 
 const PricePredictorManager = () => {
   const [activeTab, setActiveTab] = useState('products');
-  const [products, setProducts] = useState(mockProducts);
-  const [priceHistory, setPriceHistory] = useState(mockPriceHistory);
+  const [products, setProducts] = useState([]);
+  const [priceHistory, setPriceHistory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
   const formatPrice = (price) => `NPR ${parseFloat(price).toFixed(2)}`;
-
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -42,22 +35,56 @@ const PricePredictorManager = () => {
     return change;
   };
 
+  const [priceStats, setPriceStats] = useState({
+    total_products: 0,
+    updated_today: 0,
+    missing_today: 0,
+    total_price_records: 0,
+  });
+
   // Filter data based on active tab
-  const filteredData = activeTab === 'products'
-    ? products.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.category.toLowerCase().includes(searchTerm.toLowerCase()))
-    : priceHistory.filter(p => p.product_name.toLowerCase().includes(searchTerm.toLowerCase()) || p.market_name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const currentData = activeTab === "products" ? products : priceHistory;
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
 
-  const currentData = filteredData.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const loadPriceStats = async () => {
+    try {
+      const data = await getAdminPriceStats();
+      setPriceStats(data);
+    } catch (error) {
+      console.error("Failed to load price stats", error);
+    }
+  };
 
-  const productStats = {
-    total: products.length,
-    active: products.filter(p => p.is_active).length,
-    categories: [...new Set(products.map(p => p.category))].length,
-    totalRecords: priceHistory.length,
+  useEffect(() => {
+    loadPriceStats();
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab, currentPage, searchTerm]);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const params = {
+        page: currentPage,
+        search: searchTerm || undefined,
+      };
+
+      if (activeTab === "products") {
+        const data = await getAdminProducts(params);
+        setProducts(data.results);
+        setTotalCount(data.count);
+      } else {
+        const data = await getAdminPriceHistory(params);
+        setPriceHistory(data.results);
+        setTotalCount(data.count);
+      }
+    } catch (error) {
+      console.error("Failed to load price data", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,26 +112,26 @@ const PricePredictorManager = () => {
         <StatCard
           icon={<Package className="w-5 h-5 text-blue-600" />}
           label="Total Products"
-          value={productStats.total}
+          value={priceStats.total_products}
           bgColor="bg-blue-50"
         />
         <StatCard
           icon={<TrendingUp className="w-5 h-5 text-green-600" />}
-          label="Active Products"
-          value={productStats.active}
+          label="Updated Today"
+          value={priceStats.updated_today}
           bgColor="bg-green-50"
         />
         <StatCard
-          icon={<BarChart3 className="w-5 h-5 text-purple-600" />}
-          label="Categories"
-          value={productStats.categories}
-          bgColor="bg-purple-50"
+          icon={<Calendar className="w-5 h-5 text-amber-600" />}
+          label="No Data Today"
+          value={priceStats.missing_today}
+          bgColor="bg-amber-50"
         />
         <StatCard
-          icon={<Calendar className="w-5 h-5 text-amber-600" />}
+          icon={<BarChart3 className="w-5 h-5 text-purple-600" />}
           label="Price Records"
-          value={productStats.totalRecords}
-          bgColor="bg-amber-50"
+          value={priceStats.total_price_records}
+          bgColor="bg-purple-50"
         />
       </div>
 
@@ -117,11 +144,10 @@ const PricePredictorManager = () => {
                 setActiveTab('products');
                 setCurrentPage(1);
               }}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'products'
+              className={`flex-1 px-6 py-4 font-semibold transition-colors ${activeTab === 'products'
                   ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
                   : 'text-slate-600 hover:bg-slate-50'
-              }`}
+                }`}
             >
               Master Products
             </button>
@@ -130,11 +156,10 @@ const PricePredictorManager = () => {
                 setActiveTab('prices');
                 setCurrentPage(1);
               }}
-              className={`flex-1 px-6 py-4 font-semibold transition-colors ${
-                activeTab === 'prices'
+              className={`flex-1 px-6 py-4 font-semibold transition-colors ${activeTab === 'prices'
                   ? 'bg-green-50 text-green-700 border-b-2 border-green-600'
                   : 'text-slate-600 hover:bg-slate-50'
-              }`}
+                }`}
             >
               Daily Price History
             </button>
@@ -147,7 +172,7 @@ const PricePredictorManager = () => {
             <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
-              placeholder={activeTab === 'products' ? 'Search products by name or category...' : 'Search by product or market...'}
+              placeholder={activeTab === 'products' ? 'Search products by name ...' : 'Search by product or market...'}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full pl-10 pr-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent outline-none"
@@ -161,59 +186,60 @@ const PricePredictorManager = () => {
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Category</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Unit</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Latest Price</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Records</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Status</th>
-                  <th className="px-6 py-4 text-right text-xs font-semibold text-slate-600 uppercase">Actions</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">Product</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">Unit</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">Latest Price</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">Today</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold">Last Updated</th>
+                  <th className="px-6 py-4 text-right text-xs font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {currentData.map((product) => (
                   <tr key={product.id} className="hover:bg-slate-50 transition-colors">
+                    {/* Product */}
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center text-white font-semibold">
-                          {product.name.charAt(0)}
+                        <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center text-white font-semibold">
+                          {product.commodityname.charAt(0)}
                         </div>
-                        <p className="font-semibold text-slate-900">{product.name}</p>
+                        <span className="font-semibold text-slate-900">
+                          {product.commodityname}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-3 py-1 bg-purple-100 text-purple-700 text-sm font-medium rounded-full">
-                        {product.category}
-                      </span>
+
+                    {/* Unit */}
+                    <td className="px-6 py-4 text-slate-700">
+                      {product.commodityunit || "—"}
                     </td>
+
+                    {/* Latest Price */}
                     <td className="px-6 py-4">
-                      <span className="text-slate-700 font-medium">{product.unit}</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      {product.latest_price ? (
-                        <div>
-                          <p className="text-lg font-bold text-green-600">
-                            {formatPrice(product.latest_price.price)}
-                          </p>
-                          <p className="text-xs text-slate-500">{product.latest_price.market}</p>
-                        </div>
+                      {product.last_price !== null ? (
+                        <span className="text-green-600 font-bold">
+                          NPR {product.last_price.toFixed(2)}
+                        </span>
                       ) : (
-                        <span className="text-slate-400">No data</span>
+                        <span className="text-slate-400">—</span>
                       )}
                     </td>
+
+                    {/* Today Status (derived, NOT DB field) */}
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-indigo-600" />
-                        <span className="font-semibold text-slate-900">{product.price_history_count}</span>
-                      </div>
+                      {product.avg_price === null ? (
+                        <span className="text-orange-600 font-medium">No data today</span>
+                      ) : (
+                        <span className="text-green-600 font-medium">Updated</span>
+                      )}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-medium rounded-full ${
-                        product.is_active ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-700'
-                      }`}>
-                        {product.is_active ? 'Active' : 'Inactive'}
-                      </span>
+
+                    {/* Last Updated */}
+                    <td className="px-6 py-4 text-slate-600">
+                      {formatDate(product.last_update)}
                     </td>
+
+                  {/* Actions */}
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
                         <button className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
@@ -241,8 +267,6 @@ const PricePredictorManager = () => {
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Product</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Market</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Location</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Price</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Range</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-slate-600 uppercase">Date</th>
@@ -255,23 +279,11 @@ const PricePredictorManager = () => {
                     <td className="px-6 py-4">
                       <div>
                         <p className="font-semibold text-slate-900">{entry.product_name}</p>
-                        <span className="inline-flex items-center px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full mt-1">
-                          {entry.product_category}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <p className="font-medium text-slate-900">{entry.market_name}</p>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 text-slate-700">
-                        <MapPin className="w-4 h-4" />
-                        {entry.location}
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <p className="text-lg font-bold text-green-600">
-                        {formatPrice(entry.price)}
+                        NPR {entry.avg_price.toFixed(2)}
                       </p>
                     </td>
                     <td className="px-6 py-4">
@@ -311,7 +323,9 @@ const PricePredictorManager = () => {
         <div className="px-6 py-4 bg-slate-50 border-t border-slate-200">
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-600">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredData.length)} of {filteredData.length} {activeTab === 'products' ? 'products' : 'records'}
+              Showing {(currentPage - 1) * itemsPerPage + 1} to
+              {Math.min(currentPage * itemsPerPage, totalCount)} of
+              {totalCount} {activeTab === 'products' ? 'products' : 'records'}
             </p>
             <div className="flex items-center gap-2">
               <button
