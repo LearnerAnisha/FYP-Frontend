@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetHeader, } from "@/components/ui/sheet";
 import {
   Sprout,
   Menu,
@@ -217,6 +217,11 @@ export const DashboardLayout = ({ children }) => {
         </SheetTrigger>
 
         <SheetContent side="left" className="p-0 w-64">
+          {/* Required header wrapper */}
+          <SheetHeader className="sr-only">
+            <SheetTitle>Navigation Menu</SheetTitle>
+          </SheetHeader>
+
           <SidebarContent isMobile />
         </SheetContent>
       </Sheet>
