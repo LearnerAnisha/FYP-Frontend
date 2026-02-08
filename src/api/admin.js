@@ -215,9 +215,45 @@ export const getAdminProducts = async (params = {}) => {
   return response.data;
 };
 
+// Get single product detail
+export const getAdminProductDetail = async (id) => {
+  const response = await apiClient.get(`/products/${id}/`);
+  return response.data;
+};
+
+// Update product
+export const updateAdminProduct = async (id, data) => {
+  const response = await apiClient.patch(`/products/${id}/`, data);
+  return response.data;
+};
+
+// Delete product
+export const deleteAdminProduct = async (id) => {
+  const response = await apiClient.delete(`/products/${id}/`);
+  return response.data;
+};
+
 // Daily price history
 export const getAdminPriceHistory = async (params = {}) => {
   const response = await apiClient.get("/history/", { params });
+  return response.data;
+};
+
+// Get single price history entry
+export const getAdminPriceHistoryDetail = async (id) => {
+  const response = await apiClient.get(`/history/${id}/`);
+  return response.data;
+};
+
+// Update price history entry
+export const updateAdminPriceHistory = async (id, data) => {
+  const response = await apiClient.patch(`/history/${id}/`, data);
+  return response.data;
+};
+
+// Delete price history entry
+export const deleteAdminPriceHistory = async (id) => {
+  const response = await apiClient.delete(`/history/${id}/`);
   return response.data;
 };
 
@@ -238,5 +274,3 @@ export const getAdminPriceStats = async () => {
   const response = await apiClient.get("/price-stats/");
   return response.data;
 };
-
-export default apiClient;
