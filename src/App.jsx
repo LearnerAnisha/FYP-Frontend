@@ -13,6 +13,7 @@ import WeatherIrrigation from "@/pages/WeatherIrrigation";
 import PricePredictor from "@/pages/PricePredictor";
 import ChatbotPage from "@/pages/ChatbotPage";
 import ProfilePage from "@/pages/ProfilePage";
+import PricingPage from "@/pages/PricingPage";
 
 // Admin Pages
 import AdminLogin from "@/pages/Admin/AdminLogin";
@@ -40,6 +41,7 @@ function App() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
+          <Route path="/pricing" element={<PricingPage />} />
 
           {/* ============================================
               PROTECTED USER ROUTES

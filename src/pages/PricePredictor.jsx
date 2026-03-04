@@ -129,11 +129,26 @@ export default function PricePredictor() {
      FETCH TODAY'S PRICES + ANALYSIS DATA
   */
   useEffect(() => {
+    const cached = sessionStorage.getItem("marketAnalysis");
+
+    if (cached) {
+      setAnalysis(JSON.parse(cached));
+      setAnalysisLoading(false);
+      return;
+    }
+
     async function loadLiveMarket() {
+      console.log("🔥 API CALLED: Market Analysis");
+
       try {
         setAnalysisLoading(true);
         const analysisData = await getMarketAnalysis();
+
         setAnalysis(analysisData);
+
+        // SAVE TO CACHE
+        sessionStorage.setItem("marketAnalysis", JSON.stringify(analysisData));
+
       } catch {
         setError("Failed to load live market data");
       } finally {
@@ -147,6 +162,15 @@ export default function PricePredictor() {
   useEffect(() => {
     const controller = new AbortController();
 
+    const cacheKey = `marketPrices_${debouncedSearch}_${productOrdering}`;
+    const cached = sessionStorage.getItem(cacheKey);
+
+    if (cached) {
+      setPrices(JSON.parse(cached));
+      setProductsLoading(false);
+      return;
+    }
+
     async function loadProducts() {
       try {
         const params = {};
@@ -159,13 +183,15 @@ export default function PricePredictor() {
           params.ordering = productOrdering;
         }
 
-        setProductsLoading(prev => prev)
-
         const data = await getMarketPrices(params, controller.signal);
+
         setPrices(data);
+
+        // ✅ SAVE TO CACHE
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
+
         setError(null);
       } catch (err) {
-        // Ignore aborted requests
         if (err.name !== "CanceledError" && err.name !== "AbortError") {
           setError("Failed to load products");
         }
@@ -173,9 +199,9 @@ export default function PricePredictor() {
         setProductsLoading(false);
       }
     }
+
     loadProducts();
 
-    //  Cancel previous request when effect re-runs
     return () => controller.abort();
   }, [debouncedSearch, productOrdering]);
 
