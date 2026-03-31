@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchProfile, updateProfile, changePassword, deleteAccount } from "@/api/profile";
+import { handleUpgradeWithEsewa, getPaymentHistory } from "@/api/payment";   // ← NEW
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,11 @@ import {
 } from "@/components/ui/alert-dialog";
 
 /* ── Subscription plan data ───────────────────────────────────── */
+const PLAN_PRICES = {
+  pro:        { monthly: 100,  yearly: 50  },
+  enterprise: { monthly: 1499, yearly: 1199 },
+};
+
 const plans = [
   {
     id: "free",
@@ -46,7 +52,7 @@ const plans = [
     id: "pro",
     name: "Pro",
     icon: Zap,
-    price: { monthly: 499, yearly: 399 },
+    price: { monthly: 100, yearly: 50 },
     description: "For active farmers who need real-time insights.",
     highlight: true,
     badge: "Most Popular",
@@ -78,14 +84,14 @@ const plans = [
 ];
 
 const comparisonRows = [
-  { label: "Disease scans",    values: ["5 / month",   "Unlimited",  "Unlimited"] },
-  { label: "AI chatbot",       values: ["10 msgs/day", "Unlimited",  "Unlimited"] },
-  { label: "Price predictions",values: ["—",           "✓",          "✓"]         },
-  { label: "SMS alerts",       values: ["—",           "✓",          "✓"]         },
-  { label: "Chat history",     values: ["—",           "✓",          "✓"]         },
-  { label: "API access",       values: ["—",           "—",          "✓"]         },
-  { label: "Multi-farm",       values: ["—",           "—",          "✓"]         },
-  { label: "Support",          values: ["Email",       "Priority",   "Dedicated"] },
+  { label: "Disease scans",     values: ["5 / month",   "Unlimited",  "Unlimited"] },
+  { label: "AI chatbot",        values: ["10 msgs/day", "Unlimited",  "Unlimited"] },
+  { label: "Price predictions", values: ["—",           "✓",          "✓"]         },
+  { label: "SMS alerts",        values: ["—",           "✓",          "✓"]         },
+  { label: "Chat history",      values: ["—",           "✓",          "✓"]         },
+  { label: "API access",        values: ["—",           "—",          "✓"]         },
+  { label: "Multi-farm",        values: ["—",           "—",          "✓"]         },
+  { label: "Support",           values: ["Email",       "Priority",   "Dedicated"] },
 ];
 
 const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
@@ -111,9 +117,9 @@ export default function ProfilePage() {
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
 
   /* ── Subscription state ── */
-  const [isYearly, setIsYearly] = useState(false);
-  const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
-  const [loadingPlan, setLoadingPlan] = useState(null);
+  const [isYearly,     setIsYearly]     = useState(false);
+  const [currentPlan,  setCurrentPlan]  = useState(MOCK_CURRENT_PLAN);
+  const [loadingPlan,  setLoadingPlan]  = useState(null);
 
   /* ── Load profile ── */
   useEffect(() => {
@@ -122,18 +128,21 @@ export default function ProfilePage() {
         const data = await fetchProfile();
         setProfileData((prev) => ({
           ...prev,
-          fullName: data.full_name,
-          email: data.email,
-          phone: data.phone || "",
-          avatar: data.avatar,
+          fullName:   data.full_name,
+          email:      data.email,
+          phone:      data.phone || "",
+          avatar:     data.avatar,
           activeDays: data.active_days || 0,
-          joinDate: data.date_joined ? new Date(data.date_joined).toLocaleDateString() : "",
-          farmSize: data.farmer_profile?.farm_size || "",
-          experience: data.farmer_profile?.experience || "",
-          cropTypes: data.farmer_profile?.crop_types || "",
-          language: data.farmer_profile?.language || "nepali",
-          bio: data.farmer_profile?.bio || "",
+          joinDate:   data.date_joined ? new Date(data.date_joined).toLocaleDateString() : "",
+          farmSize:   data.farmer_profile?.farm_size   || "",
+          experience: data.farmer_profile?.experience  || "",
+          cropTypes:  data.farmer_profile?.crop_types  || "",
+          language:   data.farmer_profile?.language    || "nepali",
+          bio:        data.farmer_profile?.bio         || "",
         }));
+
+        // TODO: load real current plan from backend
+        // e.g. if (data.subscription) setCurrentPlan(data.subscription);
       } catch (err) {
         console.error("Profile load error:", err);
         toast.error("Failed to load profile");
@@ -142,20 +151,20 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  /* ── Handlers ── */
+  /* ── Profile update ── */
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     try {
       await updateProfile({
         full_name: profileData.fullName,
-        phone: profileData.phone,
+        phone:     profileData.phone,
         farmer_profile: {
-          farm_size: profileData.farmSize,
+          farm_size:  profileData.farmSize,
           experience: profileData.experience,
           crop_types: profileData.cropTypes,
-          language: profileData.language,
-          bio: profileData.bio,
+          language:   profileData.language,
+          bio:        profileData.bio,
         },
       });
       toast.success("Profile updated successfully!");
@@ -166,9 +175,13 @@ export default function ProfilePage() {
     }
   };
 
+  /* ── Password change ── */
   const handlePasswordChange = async (e) => {
     e.preventDefault();
-    if (passwords.new !== passwords.confirm) { toast.error("New passwords don't match!"); return; }
+    if (passwords.new !== passwords.confirm) {
+      toast.error("New passwords don't match!");
+      return;
+    }
     setIsLoading(true);
     try {
       await changePassword({ current: passwords.current, new: passwords.new });
@@ -181,21 +194,31 @@ export default function ProfilePage() {
     }
   };
 
+  /* ── Notifications ── */
   const handleNotificationUpdate = () => {
     setIsLoading(true);
-    setTimeout(() => { setIsLoading(false); toast.success("Notification preferences updated!"); }, 1000);
+    setTimeout(() => {
+      setIsLoading(false);
+      toast.success("Notification preferences updated!");
+    }, 1000);
   };
 
-  const handleExportData = () => toast.success("Preparing your data export... You'll receive an email shortly.");
+  /* ── Export data ── */
+  const handleExportData = () =>
+    toast.success("Preparing your data export… You'll receive an email shortly.");
 
+  /* ── Delete account ── */
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
       localStorage.clear();
       window.location.href = "/auth";
-    } catch { toast.error("Failed to delete account"); }
+    } catch {
+      toast.error("Failed to delete account");
+    }
   };
 
+  /* ── Avatar upload ── */
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,46 +228,84 @@ export default function ProfilePage() {
       const updated = await updateProfile(formData);
       setProfileData((prev) => ({ ...prev, avatar: updated.avatar }));
       toast.success("Profile picture updated!");
-    } catch { toast.error("Avatar upload failed"); }
+    } catch {
+      toast.error("Avatar upload failed");
+    }
   };
 
-  /* ── Subscription handlers ── */
+  /* ── UPGRADE — calls eSewa ────────────────────────────────────────────────
+     Steps:
+       1. Validates plan
+       2. Calls POST /api/payments/initiate/ via handleUpgradeWithEsewa()
+       3. Stores payment_id in sessionStorage
+       4. Submits a hidden <form> → browser navigates to eSewa login
+     After payment, eSewa → DRF success URL → DRF redirects to /payment/callback
+  ─────────────────────────────────────────────────────────────────────────── */
   const handleUpgrade = async (planId) => {
+    // Enterprise → contact sales
     if (planId === "enterprise") {
       window.location.href = "mailto:info@krishisaathi.com?subject=Enterprise Plan Inquiry";
       return;
     }
+
+    // Already on this plan
     if (planId === currentPlan.id) return;
+
     setLoadingPlan(planId);
-    await new Promise((r) => setTimeout(r, 1500));
-    setCurrentPlan({
-      id: planId,
-      renewDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      billingCycle: isYearly ? "yearly" : "monthly",
-    });
-    setLoadingPlan(null);
-    toast.success(`Upgraded to ${plans.find((p) => p.id === planId)?.name} plan!`);
+
+    try {
+      const price = isYearly
+        ? PLAN_PRICES[planId]?.yearly
+        : PLAN_PRICES[planId]?.monthly;
+
+      // This navigates the browser to eSewa — no code runs after this line
+      await handleUpgradeWithEsewa({ amount: price });
+
+    } catch (err) {
+      setLoadingPlan(null);
+
+      // Map DRF error codes to user-friendly messages
+      const code    = err.response?.data?.error?.code;
+      const message = err.response?.data?.error?.message;
+
+      const errorMessages = {
+        VALIDATION_ERROR:  "Invalid payment data. Please try again.",
+        AMOUNT_TOO_HIGH:   "Payment amount exceeds the allowed limit.",
+        AMOUNT_TOO_LOW:    "Payment amount is too low.",
+        INTERNAL_ERROR:    "Server error. Please try again later.",
+        ESEWA_API_TIMEOUT: "eSewa servers are slow. Please try again.",
+      };
+
+      toast.error(errorMessages[code] || message || "Failed to initiate payment. Please try again.");
+    }
   };
 
+  /* ── Cancel plan ── */
   const handleCancelPlan = async () => {
-    await new Promise((r) => setTimeout(r, 800));
-    setCurrentPlan({ id: "free", renewDate: null, billingCycle: null });
-    toast.success("Subscription cancelled. Access retained until billing period ends.");
+    try {
+      // TODO: call your cancel subscription API endpoint
+      // await apiClient.post("/api/subscriptions/cancel/");
+      await new Promise((r) => setTimeout(r, 800)); // remove this line when real API exists
+      setCurrentPlan({ id: "free", renewDate: null, billingCycle: null });
+      toast.success("Subscription cancelled. Access retained until billing period ends.");
+    } catch {
+      toast.error("Failed to cancel subscription. Please contact support.");
+    }
   };
 
   /* ── Derived ── */
-  const activePlan = plans.find((p) => p.id === currentPlan.id);
-  const ActiveIcon = activePlan?.icon || Sprout;
+  const activePlan   = plans.find((p) => p.id === currentPlan.id);
+  const ActiveIcon   = activePlan?.icon || Sprout;
 
   const avatarSrc = profileData.avatar?.startsWith("http")
     ? profileData.avatar
     : `${import.meta.env.VITE_API_BASE_URL}${profileData.avatar}`;
 
   const stats = [
-    { label: "Total Scans",   value: "156",                    icon: CheckCircle2, color: "text-primary" },
-    { label: "Active Days",   value: profileData.activeDays || 0, icon: Calendar  },
-    { label: "Saved Reports", value: "24",                     icon: Download,     color: "text-accent"  },
-    { label: "Success Rate",  value: "94%",                    icon: CheckCircle2, color: "text-success" },
+    { label: "Total Scans",    value: "156",                      icon: CheckCircle2, color: "text-primary"  },
+    { label: "Active Days",    value: profileData.activeDays || 0, icon: Calendar                            },
+    { label: "Saved Reports",  value: "24",                       icon: Download,     color: "text-accent"   },
+    { label: "Success Rate",   value: "94%",                      icon: CheckCircle2, color: "text-success"  },
   ];
 
   /* ══════════════════════════════════════════════════════════════
@@ -275,16 +336,28 @@ export default function ProfilePage() {
                       : "U"}
                   </AvatarFallback>
                 </Avatar>
-                <label htmlFor="avatar-upload"
-                  className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-dark transition-smooth">
+                <label
+                  htmlFor="avatar-upload"
+                  className="absolute bottom-0 right-0 w-8 h-8 bg-primary text-primary-foreground rounded-full flex items-center justify-center cursor-pointer hover:bg-primary-dark transition-smooth"
+                >
                   <Camera className="w-4 h-4" />
                 </label>
-                <input id="avatar-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                <input
+                  id="avatar-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
               </div>
 
               <div className="flex-1 text-center sm:text-left">
-                <h2 className="text-2xl font-display font-bold text-foreground mb-2">{profileData.fullName}</h2>
-                <p className="text-muted-foreground mb-3">Farmer • Member since {profileData.joinDate}</p>
+                <h2 className="text-2xl font-display font-bold text-foreground mb-2">
+                  {profileData.fullName}
+                </h2>
+                <p className="text-muted-foreground mb-3">
+                  Farmer • Member since {profileData.joinDate}
+                </p>
                 <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <MapPin className="w-3 h-3" />{profileData.location}
@@ -292,7 +365,6 @@ export default function ProfilePage() {
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <Calendar className="w-3 h-3" />{profileData.experience} years experience
                   </Badge>
-                  {/* Show current plan badge */}
                   <Badge className="flex items-center gap-1 bg-primary/10 text-primary border-primary/20">
                     <ActiveIcon className="w-3 h-3" />{activePlan?.name} Plan
                   </Badge>
@@ -327,7 +399,7 @@ export default function ProfilePage() {
         </div>
 
         {/* ══════════════════════════════════════════════════════════
-            TABS — General · Notifications · Security · Privacy · Subscription
+            TABS
         ══════════════════════════════════════════════════════════ */}
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1">
@@ -336,8 +408,7 @@ export default function ProfilePage() {
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             <TabsTrigger value="subscription" className="flex items-center gap-1.5">
-              <CreditCard className="w-3.5 h-3.5" />
-              Subscription
+              <CreditCard className="w-3.5 h-3.5" />Subscription
             </TabsTrigger>
           </TabsList>
 
@@ -353,48 +424,77 @@ export default function ProfilePage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="fullName">Full Name</Label>
-                      <Input id="fullName" value={profileData.fullName}
-                        onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })} />
+                      <Input
+                        id="fullName"
+                        value={profileData.fullName}
+                        onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input id="email" type="email" value={profileData.email}
-                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })} />
+                      <Input
+                        id="email"
+                        type="email"
+                        value={profileData.email}
+                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                      />
                     </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input id="phone" value={profileData.phone}
-                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })} />
+                      <Input
+                        id="phone"
+                        value={profileData.phone}
+                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
-                      <Input id="location" value={profileData.location}
-                        onChange={(e) => setProfileData({ ...profileData, location: e.target.value })} />
+                      <Input
+                        id="location"
+                        value={profileData.location}
+                        onChange={(e) => setProfileData({ ...profileData, location: e.target.value })}
+                      />
                     </div>
                   </div>
                   <Separator />
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="farmSize">Farm Size (Hectares)</Label>
-                      <Input id="farmSize" type="number" step="0.1" value={profileData.farmSize}
-                        onChange={(e) => setProfileData({ ...profileData, farmSize: e.target.value })} />
+                      <Input
+                        id="farmSize"
+                        type="number"
+                        step="0.1"
+                        value={profileData.farmSize}
+                        onChange={(e) => setProfileData({ ...profileData, farmSize: e.target.value })}
+                      />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="experience">Farming Experience (Years)</Label>
-                      <Input id="experience" type="number" value={profileData.experience}
-                        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })} />
+                      <Input
+                        id="experience"
+                        type="number"
+                        value={profileData.experience}
+                        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
+                      />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cropTypes">Primary Crops</Label>
-                    <Input id="cropTypes" placeholder="e.g., Rice, Wheat, Maize" value={profileData.cropTypes}
-                      onChange={(e) => setProfileData({ ...profileData, cropTypes: e.target.value })} />
+                    <Input
+                      id="cropTypes"
+                      placeholder="e.g., Rice, Wheat, Maize"
+                      value={profileData.cropTypes}
+                      onChange={(e) => setProfileData({ ...profileData, cropTypes: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="language">Preferred Language</Label>
-                    <Select value={profileData.language} onValueChange={(v) => setProfileData({ ...profileData, language: v })}>
+                    <Select
+                      value={profileData.language}
+                      onValueChange={(v) => setProfileData({ ...profileData, language: v })}
+                    >
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="nepali">Nepali (नेपाली)</SelectItem>
@@ -405,13 +505,24 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bio">Bio</Label>
-                    <Textarea id="bio" rows={4} placeholder="Tell us about your farming journey..."
-                      value={profileData.bio} onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })} />
+                    <Textarea
+                      id="bio"
+                      rows={4}
+                      placeholder="Tell us about your farming journey..."
+                      value={profileData.bio}
+                      onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
+                    />
                   </div>
                   <div className="flex justify-end gap-3">
                     <Button type="button" variant="outline">Cancel</Button>
-                    <Button type="submit" disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
-                      {isLoading ? <><span className="animate-spin mr-2">○</span>Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="bg-gradient-primary text-primary-foreground"
+                    >
+                      {isLoading
+                        ? <><span className="animate-spin mr-2">○</span>Saving...</>
+                        : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
                     </Button>
                   </div>
                 </form>
@@ -429,26 +540,37 @@ export default function ProfilePage() {
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   {[
-                    { id: "emailNotifications", label: "Email Notifications",        sub: "Receive updates and alerts via email"              },
-                    { id: "smsAlerts",          label: "SMS Alerts",                 sub: "Get important alerts via text message"             },
-                    { id: "diseaseAlerts",      label: "Disease Detection Alerts",   sub: "Notifications when diseases are detected"          },
-                    { id: "weatherAlerts",      label: "Weather Alerts",             sub: "Updates on weather changes affecting your crops"   },
-                    { id: "priceAlerts",        label: "Price Alerts",               sub: "Market price updates and predictions"              },
-                    { id: "weeklyReports",      label: "Weekly Reports",             sub: "Summary of your farming activities"                },
+                    { id: "emailNotifications", label: "Email Notifications",       sub: "Receive updates and alerts via email"             },
+                    { id: "smsAlerts",           label: "SMS Alerts",                sub: "Get important alerts via text message"            },
+                    { id: "diseaseAlerts",       label: "Disease Detection Alerts",  sub: "Notifications when diseases are detected"         },
+                    { id: "weatherAlerts",       label: "Weather Alerts",            sub: "Updates on weather changes affecting your crops"  },
+                    { id: "priceAlerts",         label: "Price Alerts",              sub: "Market price updates and predictions"             },
+                    { id: "weeklyReports",       label: "Weekly Reports",            sub: "Summary of your farming activities"               },
                   ].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div className="space-y-0.5">
-                        <Label htmlFor={item.id} className="text-base font-medium cursor-pointer">{item.label}</Label>
+                        <Label htmlFor={item.id} className="text-base font-medium cursor-pointer">
+                          {item.label}
+                        </Label>
                         <p className="text-sm text-muted-foreground">{item.sub}</p>
                       </div>
-                      <Switch id={item.id} checked={notifications[item.id]}
-                        onCheckedChange={(c) => setNotifications({ ...notifications, [item.id]: c })} />
+                      <Switch
+                        id={item.id}
+                        checked={notifications[item.id]}
+                        onCheckedChange={(c) => setNotifications({ ...notifications, [item.id]: c })}
+                      />
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-end">
-                  <Button onClick={handleNotificationUpdate} disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
-                    {isLoading ? <><span className="animate-spin mr-2">○</span>Saving...</> : <><Bell className="w-4 h-4 mr-2" />Save Preferences</>}
+                  <Button
+                    onClick={handleNotificationUpdate}
+                    disabled={isLoading}
+                    className="bg-gradient-primary text-primary-foreground"
+                  >
+                    {isLoading
+                      ? <><span className="animate-spin mr-2">○</span>Saving...</>
+                      : <><Bell className="w-4 h-4 mr-2" />Save Preferences</>}
                   </Button>
                 </div>
               </CardContent>
@@ -466,28 +588,50 @@ export default function ProfilePage() {
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Current Password</Label>
-                    <Input id="current-password" type="password" value={passwords.current}
-                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} required />
+                    <Input
+                      id="current-password"
+                      type="password"
+                      value={passwords.current}
+                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input id="new-password" type="password" value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })} required />
+                    <Input
+                      id="new-password"
+                      type="password"
+                      value={passwords.new}
+                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                      required
+                    />
                     <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input id="confirm-password" type="password" value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required />
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      value={passwords.confirm}
+                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                      required
+                    />
                   </div>
                   <div className="flex justify-end">
-                    <Button type="submit" disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
-                      {isLoading ? <><span className="animate-spin mr-2">○</span>Updating...</> : <><Lock className="w-4 h-4 mr-2" />Update Password</>}
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="bg-gradient-primary text-primary-foreground"
+                    >
+                      {isLoading
+                        ? <><span className="animate-spin mr-2">○</span>Updating...</>
+                        : <><Lock className="w-4 h-4 mr-2" />Update Password</>}
                     </Button>
                   </div>
                 </form>
               </CardContent>
             </Card>
+
             <Card className="border-warning/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-warning">
@@ -497,9 +641,12 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Two-factor authentication adds an additional layer of security by requiring more than just a password to sign in.
+                  Two-factor authentication adds an additional layer of security by requiring
+                  more than just a password to sign in.
                 </p>
-                <Button variant="outline"><Shield className="w-4 h-4 mr-2" />Enable 2FA</Button>
+                <Button variant="outline">
+                  <Shield className="w-4 h-4 mr-2" />Enable 2FA
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>
@@ -508,7 +655,7 @@ export default function ProfilePage() {
           <TabsContent value="privacy" className="space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle>Data & Privacy</CardTitle>
+                <CardTitle>Data &amp; Privacy</CardTitle>
                 <CardDescription>Manage your data and privacy settings</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -518,42 +665,61 @@ export default function ProfilePage() {
                       <Download className="w-5 h-5 text-primary mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Download Your Data</h4>
-                        <p className="text-sm text-muted-foreground mb-3">Download a copy of all your data including scans, reports, and preferences.</p>
-                        <Button variant="outline" onClick={handleExportData}><Download className="w-4 h-4 mr-2" />Request Data Export</Button>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Download a copy of all your data including scans, reports, and preferences.
+                        </p>
+                        <Button variant="outline" onClick={handleExportData}>
+                          <Download className="w-4 h-4 mr-2" />Request Data Export
+                        </Button>
                       </div>
                     </div>
                   </div>
+
                   <div className="p-4 rounded-lg border border-border">
                     <div className="flex items-start gap-3">
                       <Upload className="w-5 h-5 text-primary mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Import Data</h4>
-                        <p className="text-sm text-muted-foreground mb-3">Import your farming data from other platforms or backups.</p>
-                        <Button variant="outline"><Upload className="w-4 h-4 mr-2" />Import Data</Button>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Import your farming data from other platforms or backups.
+                        </p>
+                        <Button variant="outline">
+                          <Upload className="w-4 h-4 mr-2" />Import Data
+                        </Button>
                       </div>
                     </div>
                   </div>
+
                   <Separator />
+
                   <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/5">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Delete Account</h4>
-                        <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all associated data. This action cannot be undone.</p>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          Permanently delete your account and all associated data. This action cannot be undone.
+                        </p>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="destructive"><Trash2 className="w-4 h-4 mr-2" />Delete Account</Button>
+                            <Button variant="destructive">
+                              <Trash2 className="w-4 h-4 mr-2" />Delete Account
+                            </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                                This action cannot be undone. This will permanently delete your
+                                account and remove all your data from our servers.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">
+                              <AlertDialogAction
+                                onClick={handleDeleteAccount}
+                                className="bg-destructive text-destructive-foreground"
+                              >
                                 Yes, Delete Account
                               </AlertDialogAction>
                             </AlertDialogFooter>
@@ -568,11 +734,11 @@ export default function ProfilePage() {
           </TabsContent>
 
           {/* ══════════════════════════════════════════════════════════
-              SUBSCRIPTION TAB — new
+              SUBSCRIPTION TAB
           ══════════════════════════════════════════════════════════ */}
           <TabsContent value="subscription" className="space-y-6">
 
-            {/* Current plan banner */}
+            {/* ── Current plan banner ── */}
             <Card className={`border-2 ${currentPlan.id !== "free" ? "border-primary/40 bg-primary/5" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
@@ -584,9 +750,13 @@ export default function ProfilePage() {
 
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-xl font-display font-bold text-foreground">{activePlan?.name} Plan</h2>
+                      <h2 className="text-xl font-display font-bold text-foreground">
+                        {activePlan?.name} Plan
+                      </h2>
                       <Badge
-                        className={currentPlan.id !== "free" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground"}
+                        className={currentPlan.id !== "free"
+                          ? "bg-primary/15 text-primary border-primary/30"
+                          : "bg-muted text-muted-foreground"}
                         variant="outline"
                       >
                         {currentPlan.id === "free" ? "Current" : "Active"}
@@ -603,7 +773,11 @@ export default function ProfilePage() {
                     {currentPlan.id !== "free" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+                          >
                             Cancel Plan
                           </Button>
                         </AlertDialogTrigger>
@@ -611,12 +785,16 @@ export default function ProfilePage() {
                           <AlertDialogHeader>
                             <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              You'll keep access until your current billing period ends, then be downgraded to the Free plan.
+                              You'll keep access until your current billing period ends,
+                              then be downgraded to the Free plan.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Keep Plan</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleCancelPlan} className="bg-destructive text-destructive-foreground">
+                            <AlertDialogAction
+                              onClick={handleCancelPlan}
+                              className="bg-destructive text-destructive-foreground"
+                            >
                               Yes, Cancel
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -631,14 +809,16 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Billing toggle + plan cards */}
+            {/* ── Billing toggle ── */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-display font-semibold text-foreground">Available Plans</h3>
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
                 <button
                   onClick={() => setIsYearly(false)}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    !isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    !isYearly
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Monthly
@@ -646,20 +826,25 @@ export default function ProfilePage() {
                 <button
                   onClick={() => setIsYearly(true)}
                   className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                    isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    isYearly
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
                   Yearly
-                  <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">20% off</span>
+                  <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">
+                    20% off
+                  </span>
                 </button>
               </div>
             </div>
 
+            {/* ── Plan cards ── */}
             <div className="grid md:grid-cols-3 gap-6">
               {plans.map((plan) => {
-                const Icon = plan.icon;
-                const price = isYearly ? plan.price.yearly : plan.price.monthly;
-                const isActive = plan.id === currentPlan.id;
+                const Icon         = plan.icon;
+                const price        = isYearly ? plan.price.yearly : plan.price.monthly;
+                const isActive     = plan.id === currentPlan.id;
                 const isLoadingThis = loadingPlan === plan.id;
 
                 return (
@@ -719,10 +904,15 @@ export default function ProfilePage() {
                           </li>
                         ))}
                       </ul>
+
+                      {/* ── Upgrade button — triggers eSewa ── */}
                       <Button
                         className={`w-full gap-2 ${
-                          isActive ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
-                            : plan.highlight ? "bg-gradient-primary text-primary-foreground hover:opacity-90" : ""
+                          isActive
+                            ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
+                            : plan.highlight
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
+                            : ""
                         }`}
                         variant={isActive ? "ghost" : plan.highlight ? "default" : "outline"}
                         disabled={isActive || isLoadingThis}
@@ -731,11 +921,13 @@ export default function ProfilePage() {
                         {isLoadingThis ? (
                           <span className="flex items-center gap-2">
                             <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                            Processing...
+                            Connecting to eSewa…
                           </span>
                         ) : isActive ? (
                           <><CheckCircle2 className="w-4 h-4" />Current Plan</>
-                        ) : plan.id === "enterprise" ? "Contact Sales" : (
+                        ) : plan.id === "enterprise" ? (
+                          "Contact Sales"
+                        ) : (
                           <>Upgrade<ArrowRight className="w-4 h-4" /></>
                         )}
                       </Button>
@@ -745,7 +937,7 @@ export default function ProfilePage() {
               })}
             </div>
 
-            {/* Comparison table */}
+            {/* ── Comparison table ── */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Plan Comparison</CardTitle>
@@ -757,7 +949,12 @@ export default function ProfilePage() {
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-6 font-semibold text-foreground w-2/5">Feature</th>
                       {plans.map((p) => (
-                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"}`}>
+                        <th
+                          key={p.id}
+                          className={`text-center py-3 px-4 font-semibold ${
+                            p.id === currentPlan.id ? "text-primary" : "text-foreground"
+                          }`}
+                        >
                           {p.name}
                         </th>
                       ))}
@@ -768,10 +965,21 @@ export default function ProfilePage() {
                       <tr key={row.label} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-6 text-muted-foreground">{row.label}</td>
                         {row.values.map((val, i) => (
-                          <td key={i} className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"}`}>
-                            {val === "✓" ? <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />
-                              : val === "—" ? <span className="text-muted-foreground/40">—</span>
-                              : val}
+                          <td
+                            key={i}
+                            className={`text-center py-3 px-4 ${
+                              plans[i].id === currentPlan.id
+                                ? "font-semibold text-primary"
+                                : "text-foreground"
+                            }`}
+                          >
+                            {val === "✓" ? (
+                              <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />
+                            ) : val === "—" ? (
+                              <span className="text-muted-foreground/40">—</span>
+                            ) : (
+                              val
+                            )}
                           </td>
                         ))}
                       </tr>
@@ -781,7 +989,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Billing note */}
+            {/* ── Billing note ── */}
             <Card className="bg-muted/30">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
@@ -789,9 +997,12 @@ export default function ProfilePage() {
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">Questions about billing?</p>
                     <p className="text-sm text-muted-foreground">
-                      All plans are billed in NPR. Cancel anytime and retain access until end of billing period.
-                      For refunds or payment issues, contact{" "}
-                      <a href="mailto:info@krishisaathi.com" className="text-primary underline underline-offset-2">
+                      All plans are billed in NPR via eSewa. Cancel anytime and retain access
+                      until end of billing period. For refunds or payment issues, contact{" "}
+                      <a
+                        href="mailto:info@krishisaathi.com"
+                        className="text-primary underline underline-offset-2"
+                      >
                         info@krishisaathi.com
                       </a>.
                     </p>
