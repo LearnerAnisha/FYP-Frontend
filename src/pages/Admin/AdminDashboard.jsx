@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, UserCheck, UserX, Shield,
-  TrendingUp, Calendar, Filter, BarChart3, Activity
+  TrendingUp, Calendar, Filter, BarChart3, Activity, CreditCard, CheckCircle, XCircle
 } from 'lucide-react';
 
 // TEMP mock (we’ll wire API later)
@@ -20,6 +20,11 @@ const mockGetDashboardStats = async () => {
       today: 23,
       this_week: 167,
       this_month: 542
+    },
+    subscriptions: {  
+      total: 320,
+      active: 250,
+      inactive: 70
     }
   };
 };
@@ -65,6 +70,30 @@ const AdminDashboard = () => {
         <StatCard icon={<UserCheck className="w-8 h-8" />} title="Verified Users" value={stats.overview.verified_users} change="+8.3%" changeType="positive" gradient="from-green-500 to-emerald-500" />
         <StatCard icon={<UserX className="w-8 h-8" />} title="Unverified" value={stats.overview.unverified_users} change="-3.2%" changeType="negative" gradient="from-amber-500 to-orange-500" />
         <StatCard icon={<Shield className="w-8 h-8" />} title="Staff Members" value={stats.overview.staff_users} change="+1" changeType="positive" gradient="from-purple-500 to-pink-500" />
+        <StatCard
+          icon={<CreditCard className="w-8 h-8" />}
+          title="Total Subscriptions"
+          value={stats.subscriptions?.total ?? 0}
+          change=""
+          changeType="positive"
+          gradient="from-indigo-500 to-violet-500"
+        />
+        <StatCard
+          icon={<CheckCircle className="w-8 h-8" />}
+          title="Active Subscriptions"
+          value={stats.subscriptions?.active ?? 0}
+          change=""
+          changeType="positive"
+          gradient="from-emerald-500 to-teal-500"
+        />
+        <StatCard
+          icon={<XCircle className="w-8 h-8" />}
+          title="Inactive Subscriptions"
+          value={stats.subscriptions?.inactive ?? 0}
+          change=""
+          changeType="negative"
+          gradient="from-rose-500 to-pink-500"
+        />
       </div>
 
       {/* Middle Section */}
@@ -114,8 +143,8 @@ const NavItem = ({ icon, label, active, collapsed, onClick }) => (
   <button
     onClick={onClick}
     className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active
-        ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-        : 'text-slate-600 hover:bg-slate-100'
+      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
+      : 'text-slate-600 hover:bg-slate-100'
       }`}
   >
     {icon}
@@ -138,6 +167,7 @@ const StatCard = ({ icon, title, value, change, changeType, gradient }) => (
     <p className="text-3xl font-bold text-slate-900">{value.toLocaleString()}</p>
   </div>
 );
+
 
 const MetricCard = ({ label, value, icon }) => (
   <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">

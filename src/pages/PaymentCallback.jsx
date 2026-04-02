@@ -5,18 +5,18 @@ import { getPaymentStatus } from "@/api/payment";
 import { toast } from "sonner";
 
 const MAX_POLLS = 8;    // maximum polling attempts
-const POLL_MS   = 2000; // interval between polls (ms)
+const POLL_MS = 2000; // interval between polls (ms)
 
 export default function PaymentCallback() {
-  const [searchParams]           = useSearchParams();
-  const navigate                  = useNavigate();
-  const [uiState, setUiState]     = useState("loading"); // loading | success | failed | timeout
-  const [payment,  setPayment]    = useState(null);
-  const [attempts, setAttempts]   = useState(0);
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const [uiState, setUiState] = useState("loading"); // loading | success | failed | timeout
+  const [payment, setPayment] = useState(null);
+  const [attempts, setAttempts] = useState(0);
 
   useEffect(() => {
-    const urlStatus  = searchParams.get("status");   // "success" | "failed"
-    const paymentId  = sessionStorage.getItem("esewa_payment_id");
+    const urlStatus = searchParams.get("status");   // "success" | "failed"
+    const paymentId = sessionStorage.getItem("esewa_payment_id");
 
     // Immediately mark as failed if eSewa says so
     if (urlStatus === "failed" || !paymentId) {
@@ -24,7 +24,7 @@ export default function PaymentCallback() {
       return;
     }
 
-    let count   = 0;
+    let count = 0;
     let stopped = false;
 
     const poll = async () => {
@@ -38,6 +38,9 @@ export default function PaymentCallback() {
 
         if (data.status === "COMPLETE") {
           setUiState("success");
+          setTimeout(() => {
+            window.location.href = "/dashboard/profile?tab=subscription";
+          }, 1500);
           sessionStorage.removeItem("esewa_payment_id");
           sessionStorage.removeItem("esewa_transaction_uuid");
           toast.success("Payment successful! Your plan has been upgraded.");
@@ -80,7 +83,7 @@ export default function PaymentCallback() {
       <div className="bg-card border border-border rounded-2xl shadow-xl p-10 max-w-md w-full">
         {uiState === "loading" && <LoadingState attempts={attempts} />}
         {uiState === "success" && <SuccessState payment={payment} navigate={navigate} />}
-        {uiState === "failed"  && <FailedState  navigate={navigate} />}
+        {uiState === "failed" && <FailedState navigate={navigate} />}
         {uiState === "timeout" && <TimeoutState navigate={navigate} />}
       </div>
     </div>
@@ -143,10 +146,10 @@ function SuccessState({ payment, navigate }) {
 
       {payment && (
         <div className="w-full bg-muted/40 rounded-xl p-4 space-y-2.5 text-left">
-          <DetailRow label="Reference ID"   value={payment.esewa_ref_id || "—"} />
-          <DetailRow label="Amount Paid"    value={`NPR ${Number(payment.total_amount).toLocaleString()}`} />
+          <DetailRow label="Reference ID" value={payment.esewa_ref_id || "—"} />
+          <DetailRow label="Amount Paid" value={`NPR ${Number(payment.total_amount).toLocaleString()}`} />
           <DetailRow label="Transaction ID" value={String(payment.transaction_uuid).slice(0, 18) + "…"} mono />
-          <DetailRow label="Status"         value="COMPLETE ✅" highlight />
+          <DetailRow label="Status" value="COMPLETE ✅" highlight />
         </div>
       )}
 
@@ -235,7 +238,7 @@ function DetailRow({ label, value, mono = false, highlight = false }) {
     <div className="flex items-center justify-between gap-4 py-1 border-b border-border/50 last:border-0">
       <span className="text-sm text-muted-foreground flex-shrink-0">{label}</span>
       <span className={`text-sm text-right font-medium
-        ${mono      ? "font-mono text-xs"   : ""}
+        ${mono ? "font-mono text-xs" : ""}
         ${highlight ? "text-green-600 font-bold" : "text-foreground"}
       `}>
         {value}

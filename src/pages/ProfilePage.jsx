@@ -28,7 +28,7 @@ import {
 
 /* ── Subscription plan data ───────────────────────────────────── */
 const PLAN_PRICES = {
-  pro:        { monthly: 100,  yearly: 50  },
+  pro: { monthly: 100, yearly: 50 },
   enterprise: { monthly: 1499, yearly: 1199 },
 };
 
@@ -84,21 +84,19 @@ const plans = [
 ];
 
 const comparisonRows = [
-  { label: "Disease scans",     values: ["5 / month",   "Unlimited",  "Unlimited"] },
-  { label: "AI chatbot",        values: ["10 msgs/day", "Unlimited",  "Unlimited"] },
-  { label: "Price predictions", values: ["—",           "✓",          "✓"]         },
-  { label: "SMS alerts",        values: ["—",           "✓",          "✓"]         },
-  { label: "Chat history",      values: ["—",           "✓",          "✓"]         },
-  { label: "API access",        values: ["—",           "—",          "✓"]         },
-  { label: "Multi-farm",        values: ["—",           "—",          "✓"]         },
-  { label: "Support",           values: ["Email",       "Priority",   "Dedicated"] },
+  { label: "Disease scans", values: ["5 / month", "Unlimited", "Unlimited"] },
+  { label: "AI chatbot", values: ["10 msgs/day", "Unlimited", "Unlimited"] },
+  { label: "Price predictions", values: ["—", "✓", "✓"] },
+  { label: "SMS alerts", values: ["—", "✓", "✓"] },
+  { label: "Chat history", values: ["—", "✓", "✓"] },
+  { label: "API access", values: ["—", "—", "✓"] },
+  { label: "Multi-farm", values: ["—", "—", "✓"] },
+  { label: "Support", values: ["Email", "Priority", "Dedicated"] },
 ];
 
 const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
 
-/* ══════════════════════════════════════════════════════════════════
-   COMPONENT
-══════════════════════════════════════════════════════════════════ */
+/* COMPONENT */
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
 
@@ -117,9 +115,9 @@ export default function ProfilePage() {
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
 
   /* ── Subscription state ── */
-  const [isYearly,     setIsYearly]     = useState(false);
-  const [currentPlan,  setCurrentPlan]  = useState(MOCK_CURRENT_PLAN);
-  const [loadingPlan,  setLoadingPlan]  = useState(null);
+  const [isYearly, setIsYearly] = useState(false);
+  const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
+  const [loadingPlan, setLoadingPlan] = useState(null);
 
   /* ── Load profile ── */
   useEffect(() => {
@@ -128,21 +126,29 @@ export default function ProfilePage() {
         const data = await fetchProfile();
         setProfileData((prev) => ({
           ...prev,
-          fullName:   data.full_name,
-          email:      data.email,
-          phone:      data.phone || "",
-          avatar:     data.avatar,
+          fullName: data.full_name,
+          email: data.email,
+          phone: data.phone || "",
+          avatar: data.avatar,
           activeDays: data.active_days || 0,
-          joinDate:   data.date_joined ? new Date(data.date_joined).toLocaleDateString() : "",
-          farmSize:   data.farmer_profile?.farm_size   || "",
-          experience: data.farmer_profile?.experience  || "",
-          cropTypes:  data.farmer_profile?.crop_types  || "",
-          language:   data.farmer_profile?.language    || "nepali",
-          bio:        data.farmer_profile?.bio         || "",
+          joinDate: data.date_joined ? new Date(data.date_joined).toLocaleDateString() : "",
+          farmSize: data.farmer_profile?.farm_size || "",
+          experience: data.farmer_profile?.experience || "",
+          cropTypes: data.farmer_profile?.crop_types || "",
+          language: data.farmer_profile?.language || "nepali",
+          bio: data.farmer_profile?.bio || "",
         }));
 
-        // TODO: load real current plan from backend
         // e.g. if (data.subscription) setCurrentPlan(data.subscription);
+        if (data.subscription && data.subscription.is_active) {
+          setCurrentPlan({
+            id: data.subscription.plan.toLowerCase(), // "PRO" → "pro"
+            renewDate: data.subscription.expires_at
+              ? new Date(data.subscription.expires_at)
+                .toLocaleDateString()
+              : null,
+          });
+        }
       } catch (err) {
         console.error("Profile load error:", err);
         toast.error("Failed to load profile");
@@ -158,13 +164,13 @@ export default function ProfilePage() {
     try {
       await updateProfile({
         full_name: profileData.fullName,
-        phone:     profileData.phone,
+        phone: profileData.phone,
         farmer_profile: {
-          farm_size:  profileData.farmSize,
+          farm_size: profileData.farmSize,
           experience: profileData.experience,
           crop_types: profileData.cropTypes,
-          language:   profileData.language,
-          bio:        profileData.bio,
+          language: profileData.language,
+          bio: profileData.bio,
         },
       });
       toast.success("Profile updated successfully!");
@@ -265,14 +271,14 @@ export default function ProfilePage() {
       setLoadingPlan(null);
 
       // Map DRF error codes to user-friendly messages
-      const code    = err.response?.data?.error?.code;
+      const code = err.response?.data?.error?.code;
       const message = err.response?.data?.error?.message;
 
       const errorMessages = {
-        VALIDATION_ERROR:  "Invalid payment data. Please try again.",
-        AMOUNT_TOO_HIGH:   "Payment amount exceeds the allowed limit.",
-        AMOUNT_TOO_LOW:    "Payment amount is too low.",
-        INTERNAL_ERROR:    "Server error. Please try again later.",
+        VALIDATION_ERROR: "Invalid payment data. Please try again.",
+        AMOUNT_TOO_HIGH: "Payment amount exceeds the allowed limit.",
+        AMOUNT_TOO_LOW: "Payment amount is too low.",
+        INTERNAL_ERROR: "Server error. Please try again later.",
         ESEWA_API_TIMEOUT: "eSewa servers are slow. Please try again.",
       };
 
@@ -294,18 +300,18 @@ export default function ProfilePage() {
   };
 
   /* ── Derived ── */
-  const activePlan   = plans.find((p) => p.id === currentPlan.id);
-  const ActiveIcon   = activePlan?.icon || Sprout;
+  const activePlan = plans.find((p) => p.id === currentPlan.id);
+  const ActiveIcon = activePlan?.icon || Sprout;
 
   const avatarSrc = profileData.avatar?.startsWith("http")
     ? profileData.avatar
     : `${import.meta.env.VITE_API_BASE_URL}${profileData.avatar}`;
 
   const stats = [
-    { label: "Total Scans",    value: "156",                      icon: CheckCircle2, color: "text-primary"  },
-    { label: "Active Days",    value: profileData.activeDays || 0, icon: Calendar                            },
-    { label: "Saved Reports",  value: "24",                       icon: Download,     color: "text-accent"   },
-    { label: "Success Rate",   value: "94%",                      icon: CheckCircle2, color: "text-success"  },
+    { label: "Total Scans", value: "156", icon: CheckCircle2, color: "text-primary" },
+    { label: "Active Days", value: profileData.activeDays || 0, icon: Calendar },
+    { label: "Saved Reports", value: "24", icon: Download, color: "text-accent" },
+    { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" },
   ];
 
   /* ══════════════════════════════════════════════════════════════
@@ -540,12 +546,12 @@ export default function ProfilePage() {
               <CardContent className="space-y-6">
                 <div className="space-y-4">
                   {[
-                    { id: "emailNotifications", label: "Email Notifications",       sub: "Receive updates and alerts via email"             },
-                    { id: "smsAlerts",           label: "SMS Alerts",                sub: "Get important alerts via text message"            },
-                    { id: "diseaseAlerts",       label: "Disease Detection Alerts",  sub: "Notifications when diseases are detected"         },
-                    { id: "weatherAlerts",       label: "Weather Alerts",            sub: "Updates on weather changes affecting your crops"  },
-                    { id: "priceAlerts",         label: "Price Alerts",              sub: "Market price updates and predictions"             },
-                    { id: "weeklyReports",       label: "Weekly Reports",            sub: "Summary of your farming activities"               },
+                    { id: "emailNotifications", label: "Email Notifications", sub: "Receive updates and alerts via email" },
+                    { id: "smsAlerts", label: "SMS Alerts", sub: "Get important alerts via text message" },
+                    { id: "diseaseAlerts", label: "Disease Detection Alerts", sub: "Notifications when diseases are detected" },
+                    { id: "weatherAlerts", label: "Weather Alerts", sub: "Updates on weather changes affecting your crops" },
+                    { id: "priceAlerts", label: "Price Alerts", sub: "Market price updates and predictions" },
+                    { id: "weeklyReports", label: "Weekly Reports", sub: "Summary of your farming activities" },
                   ].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div className="space-y-0.5">
@@ -742,9 +748,8 @@ export default function ProfilePage() {
             <Card className={`border-2 ${currentPlan.id !== "free" ? "border-primary/40 bg-primary/5" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                    currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
-                  }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
+                    }`}>
                     <ActiveIcon className="w-7 h-7" />
                   </div>
 
@@ -815,21 +820,19 @@ export default function ProfilePage() {
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
                 <button
                   onClick={() => setIsYearly(false)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    !isYearly
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isYearly
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   Monthly
                 </button>
                 <button
                   onClick={() => setIsYearly(true)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                    isYearly
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isYearly
                       ? "bg-background text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
-                  }`}
+                    }`}
                 >
                   Yearly
                   <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">
@@ -842,21 +845,20 @@ export default function ProfilePage() {
             {/* ── Plan cards ── */}
             <div className="grid md:grid-cols-3 gap-6">
               {plans.map((plan) => {
-                const Icon         = plan.icon;
-                const price        = isYearly ? plan.price.yearly : plan.price.monthly;
-                const isActive     = plan.id === currentPlan.id;
+                const Icon = plan.icon;
+                const price = isYearly ? plan.price.yearly : plan.price.monthly;
+                const isActive = plan.id === currentPlan.id;
                 const isLoadingThis = loadingPlan === plan.id;
 
                 return (
                   <Card
                     key={plan.id}
-                    className={`relative flex flex-col transition-smooth ${
-                      isActive
+                    className={`relative flex flex-col transition-smooth ${isActive
                         ? "border-primary shadow-lg ring-2 ring-primary/30"
                         : plan.highlight
-                        ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
-                        : "border-border hover:border-primary/30 hover:shadow-elegant"
-                    }`}
+                          ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
+                          : "border-border hover:border-primary/30 hover:shadow-elegant"
+                      }`}
                   >
                     {isActive && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
@@ -875,9 +877,8 @@ export default function ProfilePage() {
 
                     <CardHeader className="pt-8 pb-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
-                        }`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
+                          }`}>
                           <Icon className={`w-5 h-5 ${isActive || plan.highlight ? "text-primary-foreground" : "text-primary"}`} />
                         </div>
                         <CardTitle className="text-lg font-display">{plan.name}</CardTitle>
@@ -907,13 +908,12 @@ export default function ProfilePage() {
 
                       {/* ── Upgrade button — triggers eSewa ── */}
                       <Button
-                        className={`w-full gap-2 ${
-                          isActive
+                        className={`w-full gap-2 ${isActive
                             ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
                             : plan.highlight
-                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
-                            : ""
-                        }`}
+                              ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
+                              : ""
+                          }`}
                         variant={isActive ? "ghost" : plan.highlight ? "default" : "outline"}
                         disabled={isActive || isLoadingThis}
                         onClick={() => !isActive && handleUpgrade(plan.id)}
@@ -951,9 +951,8 @@ export default function ProfilePage() {
                       {plans.map((p) => (
                         <th
                           key={p.id}
-                          className={`text-center py-3 px-4 font-semibold ${
-                            p.id === currentPlan.id ? "text-primary" : "text-foreground"
-                          }`}
+                          className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"
+                            }`}
                         >
                           {p.name}
                         </th>
@@ -967,11 +966,10 @@ export default function ProfilePage() {
                         {row.values.map((val, i) => (
                           <td
                             key={i}
-                            className={`text-center py-3 px-4 ${
-                              plans[i].id === currentPlan.id
+                            className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id
                                 ? "font-semibold text-primary"
                                 : "text-foreground"
-                            }`}
+                              }`}
                           >
                             {val === "✓" ? (
                               <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />

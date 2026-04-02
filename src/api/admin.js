@@ -2,9 +2,7 @@ import axios from "axios";
 
 const API_BASE_URL = import.meta.env.VITE_API_ADMIN_URL;
 
-// =======================
 // Axios instance
-// =======================
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
@@ -12,9 +10,7 @@ const apiClient = axios.create({
   },
 });
 
-// =======================
 // Request interceptor
-// =======================
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("admin_access_token");
@@ -26,9 +22,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// =======================
 // Response interceptor (refresh token)
-// =======================
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
@@ -64,9 +58,7 @@ apiClient.interceptors.response.use(
   }
 );
 
-// =======================
 // AUTH
-// =======================
 
 /**
  * Admin login
@@ -86,18 +78,13 @@ export const adminLogout = () => {
   window.location.href = "/admin/login";
 };
 
-// =======================
 // DASHBOARD
-// =======================
-
 export const getDashboardStats = async () => {
   const response = await apiClient.get("/dashboard/stats/");
   return response.data;
 };
 
-// =======================
 // USER MANAGEMENT
-// =======================
 
 // Create new user
 export const createUser = async (data) => {
@@ -135,19 +122,13 @@ export const verifyUser = async (id) => {
   return response.data;
 };
 
-// =======================
 // ACTIVITY LOGS
-// =======================
-
 export const getActivityLogs = async (params = {}) => {
   const response = await apiClient.get("/activity-logs/", { params });
   return response.data;
 };
 
-// =======================
 // CHATBOT MANAGEMENT
-// =======================
-
 export const getChatConversations = async (params = {}) => {
   const response = await apiClient.get("/chat-conversations/", { params });
   return response.data;
@@ -173,10 +154,7 @@ export const getChatMessages = async (params = {}) => {
   return response.data;
 };
 
-// =======================
 // CROP & WEATHER
-// =======================
-
 export const getCropSuggestions = async (params = {}) => {
   const response = await apiClient.get("/crop-suggestions/", { params });
   return response.data;
@@ -187,10 +165,7 @@ export const getWeatherData = async (params = {}) => {
   return response.data;
 };
 
-// =======================
 // DISEASE SCANS
-// =======================
-
 export const getScanResults = async (params = {}) => {
   const response = await apiClient.get("/scan-results/", { params });
   return response.data;
@@ -211,9 +186,7 @@ export const deleteScanResult = async (pk) => {
   return response.data;
 };
 
-// =======================
 // PRICE PREDICTOR 
-// =======================
 
 // Latest products (MasterProduct)
 export const getAdminProducts = async (params = {}) => {
@@ -278,5 +251,26 @@ export const fetchAdminMarketPrices = async () => {
 // PRICE PREDICTOR STATS (ADMIN)
 export const getAdminPriceStats = async () => {
   const response = await apiClient.get("/price-stats/");
+  return response.data;
+};
+
+// SUBSCRIPTIONS
+export const getSubscriptions = async (params = {}) => {
+  const response = await apiClient.get("/subscriptions/", { params });
+  return response.data;
+};
+
+export const getSubscriptionDetail = async (pk) => {
+  const response = await apiClient.get(`/subscriptions/${pk}/`);
+  return response.data;
+};
+
+export const updateSubscription = async (pk, data) => {
+  const response = await apiClient.patch(`/subscriptions/${pk}/`, data);
+  return response.data;
+};
+
+export const deleteSubscription = async (pk) => {
+  const response = await apiClient.delete(`/subscriptions/${pk}/`);
   return response.data;
 };

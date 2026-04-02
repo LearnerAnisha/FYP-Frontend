@@ -25,6 +25,7 @@ import ChatConversationManager from "@/pages/Admin/ChatConversationManager";
 import PricePredictorManager from "@/pages/Admin/PricePredictorManager";
 import ScanResultManager from "@/pages/Admin/ScanResultManager";
 import ProtectedAdminRoute from "@/pages/Admin/ProtectedAdminRoute";
+import SubscriptionManager from "@/pages/Admin/SubscriptionManager";
 
 // Components
 import { Toaster } from "@/components/ui/sonner";
@@ -35,17 +36,13 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <Routes>
-          {/* ============================================
-              PUBLIC ROUTES
-              ============================================ */}
+          {/*  PUBLIC ROUTES */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/pricing" element={<PricingPage />} />
 
-          {/* ============================================
-              PROTECTED USER ROUTES
-              ============================================ */}
+          {/*  PROTECTED USER ROUTES */}
           <Route
             path="/dashboard"
             element={
@@ -95,9 +92,7 @@ function App() {
             }
           />
 
-          {/* ============================================
-              ADMIN ROUTES
-              ============================================ */}
+          {/* ADMIN ROUTES */}
           {/* Admin Login - Public */}
           <Route path="/admin/login" element={<AdminLogin />} />
 
@@ -114,6 +109,7 @@ function App() {
                     <Route path="scan-results" element={<ScanResultManager />} />
                     <Route path="price-predictor" element={<PricePredictorManager />} />
                     <Route path="settings" element={<AdminSettings />} />
+                    <Route path="subscriptions" element={<SubscriptionManager />} />
 
                     {/* Redirect /admin to /admin/dashboard */}
                     <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
@@ -129,9 +125,7 @@ function App() {
           {/* Redirect /admin to /admin/dashboard */}
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-          {/* ============================================
-              404 - NOT FOUND
-              ============================================ */}
+          {/* 404 - NOT FOUND */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

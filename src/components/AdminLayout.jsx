@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   LayoutDashboard, Users, Shield, MessageSquare, Leaf,
   DollarSign, Activity, Menu, X, LogOut, Search,
-  Bell, Settings
+  Bell, Settings, CreditCard
 } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { getAdminUser } from '@/lib/adminAuth';
@@ -25,6 +25,7 @@ const AdminLayout = ({ children }) => {
     { label: 'Crop Disease', icon: <Leaf className="w-5 h-5" />, path: '/admin/scan-results' },
     { label: 'Price Predictor', icon: <DollarSign className="w-5 h-5" />, path: '/admin/price-predictor' },
     { label: 'Settings', icon: <Settings className="w-5 h-5" />, path: '/admin/settings' },
+    { label: 'Subscriptions', icon: <CreditCard className="w-5 h-5" />, path: '/admin/subscriptions' },
   ];
 
   return (

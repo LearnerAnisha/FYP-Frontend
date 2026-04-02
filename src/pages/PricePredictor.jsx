@@ -380,6 +380,8 @@ export default function PricePredictor() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [productOrdering, setProductOrdering] = useState("");
 
+  const CACHE_DURATION = 5 * 60 * 1000;
+
   /* ── Predictor tab ── */
   const [selectedCrop, setSelectedCrop] = useState("");
 
@@ -407,23 +409,43 @@ export default function PricePredictor() {
 
   /* ══ FETCH — market analysis ══ */
   const loadAnalysis = useCallback(async () => {
-    const cached = sessionStorage.getItem("marketAnalysis");
+    const cacheKey = "marketAnalysis";
+    const cached = sessionStorage.getItem(cacheKey);
+
     if (cached) {
-      setAnalysis(JSON.parse(cached));
-      setAnalysisLoading(false);
-      return;
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setAnalysis(data);
+          setAnalysisLoading(false);
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem(cacheKey);
+      }
     }
+
     try {
       setAnalysisLoading(true);
       setAnalysisError(null);
       const data = await getMarketAnalysis();
       setAnalysis(data);
-      sessionStorage.setItem("marketAnalysis", JSON.stringify(data));
+
+      sessionStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data,
+          timestamp: Date.now(),
+        })
+      );
     } catch (err) {
       const msg =
         err?.response?.status === 400
           ? "Not enough historical data yet."
-          : err?.response?.data?.error?.message ?? err?.message ?? "Failed to load market analysis.";
+          : err?.response?.data?.error?.message ??
+          err?.message ??
+          "Failed to load market analysis.";
       setAnalysisError(msg);
     } finally {
       setAnalysisLoading(false);
@@ -438,10 +460,19 @@ export default function PricePredictor() {
     const cacheKey = `marketPrices_${debouncedSearch}_${productOrdering}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
-      setPrices(JSON.parse(cached));
-      setProductsLoading(false);
-      return;
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+
+        if (Date.now() - timestamp < CACHE_DURATION) {
+          setPrices(data);
+          setProductsLoading(false);
+          return;
+        }
+      } catch {
+        sessionStorage.removeItem(cacheKey); // corrupted cache safety
+      }
     }
+
     async function load() {
       try {
         setProductsLoading(true);
@@ -452,10 +483,22 @@ export default function PricePredictor() {
         const data = await getMarketPrices(params, controller.signal);
         const list = Array.isArray(data) ? data : data.results ?? [];
         setPrices(list);
-        sessionStorage.setItem(cacheKey, JSON.stringify(list));
+
+        // store with timestamp
+        sessionStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            data: list,
+            timestamp: Date.now(),
+          })
+        );
       } catch (err) {
         if (err.name !== "CanceledError" && err.name !== "AbortError") {
-          setProductsError(err?.response?.data?.detail ?? err?.message ?? "Failed to load products.");
+          setProductsError(
+            err?.response?.data?.detail ??
+            err?.message ??
+            "Failed to load products."
+          );
         }
       } finally {
         setProductsLoading(false);
