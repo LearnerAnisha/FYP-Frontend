@@ -1,19 +1,8 @@
 /**
  * VerifyOTP.jsx
  * -------------
- * This component handles email OTP verification as part of the
- * user authentication workflow.
- *
- * Responsibilities:
- * - Collect OTP from the user
- * - Verify OTP via backend API
- * - Mark user as verified
- * - Redirect user back to login page
- *
- * Design Considerations:
- * - Handles invalid navigation (missing email)
- * - Prevents unnecessary API calls
- * - Provides clear user feedback
+ * Handles email OTP verification after registration.
+ * Also allows user to resend OTP if it expired or wasn't received.
  */
 
 import { useState, useEffect } from "react";
@@ -23,19 +12,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
-import { verifyOTP } from "@/api/auth";
+import { verifyOTP, resendOTP } from "@/api/auth";
 
 export default function VerifyOTP() {
   const [otp, setOtp] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const navigate = useNavigate();
 
-  // Email stored during registration step
   const email = localStorage.getItem("verify_email");
 
-  /**
-   * Redirect user if OTP page is accessed directly
-   * without completing registration.
-   */
   useEffect(() => {
     if (!email) {
       toast.error("Verification session expired. Please register again.");
@@ -43,32 +29,40 @@ export default function VerifyOTP() {
     }
   }, [email, navigate]);
 
-  /**
-   * Handles OTP verification submission.
-   */
   const handleVerify = async (e) => {
     e.preventDefault();
 
-    // Frontend OTP validation
     if (!/^\d{6}$/.test(otp)) {
       toast.error("OTP must be a 6-digit number.");
       return;
     }
 
+    setIsVerifying(true);
     try {
       await verifyOTP({ email, otp });
-
-      toast.success("Email verified successfully!");
-
-      // Cleanup verification state
+      toast.success("Email verified successfully! You can now log in.");
       localStorage.removeItem("verify_email");
-
-      // Redirect user back to login
       navigate("/auth");
     } catch (error) {
       toast.error(
-        error.response?.data?.message || "OTP verification failed."
+        error.response?.data?.message || "OTP verification failed. Try again."
       );
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setIsResending(true);
+    try {
+      await resendOTP({ email });
+      toast.success("A new OTP has been sent to your email.");
+    } catch (error) {
+      toast.error(
+        error.response?.data?.message || "Failed to resend OTP. Try again."
+      );
+    } finally {
+      setIsResending(false);
     }
   };
 
@@ -78,9 +72,11 @@ export default function VerifyOTP() {
         onSubmit={handleVerify}
         className="space-y-4 w-80 p-6 bg-card rounded-xl shadow"
       >
-        <h2 className="text-xl font-bold text-center">
-          Verify Your Email
-        </h2>
+        <h2 className="text-xl font-bold text-center">Verify Your Email</h2>
+
+        <p className="text-sm text-center text-muted-foreground">
+          Enter the 6-digit OTP sent to <strong>{email}</strong>
+        </p>
 
         <Input
           placeholder="Enter 6-digit OTP"
@@ -91,9 +87,23 @@ export default function VerifyOTP() {
           required
         />
 
-        <Button type="submit" className="w-full">
-          Verify OTP
+        <Button type="submit" className="w-full" disabled={isVerifying}>
+          {isVerifying ? "Verifying..." : "Verify OTP"}
         </Button>
+
+        <div className="text-center">
+          <p className="text-sm text-muted-foreground">
+            Didn&apos;t receive the OTP?{" "}
+            <button
+              type="button"
+              onClick={handleResend}
+              disabled={isResending}
+              className="text-primary underline font-medium hover:opacity-80 disabled:opacity-50"
+            >
+              {isResending ? "Sending..." : "Resend OTP"}
+            </button>
+          </p>
+        </div>
       </form>
     </div>
   );
