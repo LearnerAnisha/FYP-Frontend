@@ -12,8 +12,14 @@ export async function loginUser(data) {
   return response.data;
 }
 
-// Verifies email OTP submitted by the user.
+// Verify email OTP
 export async function verifyOTP(data) {
   const response = await apiClient.post("/api/auth/verify-otp/", data);
+  return response.data;
+}
+
+// Resend OTP to email
+export async function resendOTP(data) {
+  const response = await apiClient.post("/api/auth/resend-otp/", data);
   return response.data;
 }
