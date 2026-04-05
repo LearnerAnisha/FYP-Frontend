@@ -4,9 +4,7 @@ const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL,
 });
 
-/* =========================
-   REQUEST INTERCEPTOR
-   ========================= */
+/* REQUEST INTERCEPTOR */
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("access");
@@ -20,9 +18,7 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/* =========================
-   RESPONSE INTERCEPTOR
-   ========================= */
+/* RESPONSE INTERCEPTOR */
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {

@@ -26,7 +26,7 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-/* ── Subscription plan data ───────────────────────────────────── */
+/* Subscription plan data  */
 const PLAN_PRICES = {
   pro: { monthly: 100, yearly: 50 },
   enterprise: { monthly: 1499, yearly: 1199 },
@@ -100,7 +100,7 @@ const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
 
-  /* ── Profile state ── */
+  /* Profile state */
   const [profileData, setProfileData] = useState({
     fullName: "", email: "", phone: "", avatar: null,
     location: "", farmSize: "", cropTypes: "", experience: "",
@@ -114,12 +114,12 @@ export default function ProfilePage() {
 
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
 
-  /* ── Subscription state ── */
+  /* Subscription state */
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
   const [loadingPlan, setLoadingPlan] = useState(null);
 
-  /* ── Load profile ── */
+  /* Load profile  */
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -157,7 +157,7 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  /* ── Profile update ── */
+  /* Profile update */
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -181,7 +181,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── Password change ── */
+  /*  Password change  */
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
@@ -200,7 +200,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── Notifications ── */
+  /* Notifications */
   const handleNotificationUpdate = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -209,11 +209,11 @@ export default function ProfilePage() {
     }, 1000);
   };
 
-  /* ── Export data ── */
+  /* Export data */
   const handleExportData = () =>
     toast.success("Preparing your data export… You'll receive an email shortly.");
 
-  /* ── Delete account ── */
+  /* Delete account  */
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
@@ -224,7 +224,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── Avatar upload ── */
+  /* Avatar upload  */
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -239,14 +239,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── UPGRADE — calls eSewa ────────────────────────────────────────────────
-     Steps:
-       1. Validates plan
-       2. Calls POST /api/payments/initiate/ via handleUpgradeWithEsewa()
-       3. Stores payment_id in sessionStorage
-       4. Submits a hidden <form> → browser navigates to eSewa login
-     After payment, eSewa → DRF success URL → DRF redirects to /payment/callback
-  ─────────────────────────────────────────────────────────────────────────── */
+  /* UPGRADE — calls eSewa  */
   const handleUpgrade = async (planId) => {
     // Enterprise → contact sales
     if (planId === "enterprise") {
@@ -286,7 +279,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── Cancel plan ── */
+  /* Cancel plan  */
   const handleCancelPlan = async () => {
     try {
       // TODO: call your cancel subscription API endpoint
@@ -299,7 +292,7 @@ export default function ProfilePage() {
     }
   };
 
-  /* ── Derived ── */
+  /* Derived */
   const activePlan = plans.find((p) => p.id === currentPlan.id);
   const ActiveIcon = activePlan?.icon || Sprout;
 
@@ -314,9 +307,7 @@ export default function ProfilePage() {
     { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" },
   ];
 
-  /* ══════════════════════════════════════════════════════════════
-     RENDER
-  ══════════════════════════════════════════════════════════════ */
+  /*  RENDER */
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -329,7 +320,7 @@ export default function ProfilePage() {
           <p className="text-muted-foreground">Manage your account settings and preferences.</p>
         </div>
 
-        {/* ── Profile header card ── */}
+        {/* Profile header card */}
         <Card>
           <CardContent className="p-6">
             <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
@@ -384,7 +375,7 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* ── Stats ── */}
+        {/* Stats */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map((stat, i) => {
             const Icon = stat.icon;
@@ -404,9 +395,7 @@ export default function ProfilePage() {
           })}
         </div>
 
-        {/* ══════════════════════════════════════════════════════════
-            TABS
-        ══════════════════════════════════════════════════════════ */}
+        {/* TABS */}
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="general">General</TabsTrigger>
@@ -418,7 +407,7 @@ export default function ProfilePage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* ── General ── */}
+          {/* General */}
           <TabsContent value="general" className="space-y-6">
             <Card>
               <CardHeader>
@@ -536,7 +525,7 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* ── Notifications ── */}
+          {/*  Notifications  */}
           <TabsContent value="notifications" className="space-y-6">
             <Card>
               <CardHeader>
@@ -583,7 +572,7 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* ── Security ── */}
+          {/* Security */}
           <TabsContent value="security" className="space-y-6">
             <Card>
               <CardHeader>
@@ -657,7 +646,7 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* ── Privacy ── */}
+          {/* Privacy  */}
           <TabsContent value="privacy" className="space-y-6">
             <Card>
               <CardHeader>
@@ -739,9 +728,7 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* ══════════════════════════════════════════════════════════
-              SUBSCRIPTION TAB
-          ══════════════════════════════════════════════════════════ */}
+          {/*  SUBSCRIPTION TAB */}
           <TabsContent value="subscription" className="space-y-6">
 
             {/* ── Current plan banner ── */}
@@ -814,7 +801,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* ── Billing toggle ── */}
+            {/*  Billing toggle  */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-display font-semibold text-foreground">Available Plans</h3>
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
@@ -842,7 +829,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* ── Plan cards ── */}
+            {/* Plan cards  */}
             <div className="grid md:grid-cols-3 gap-6">
               {plans.map((plan) => {
                 const Icon = plan.icon;
@@ -906,7 +893,7 @@ export default function ProfilePage() {
                         ))}
                       </ul>
 
-                      {/* ── Upgrade button — triggers eSewa ── */}
+                      {/* Upgrade button — triggers eSewa */}
                       <Button
                         className={`w-full gap-2 ${isActive
                             ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
@@ -937,7 +924,7 @@ export default function ProfilePage() {
               })}
             </div>
 
-            {/* ── Comparison table ── */}
+            {/* Comparison table */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Plan Comparison</CardTitle>
@@ -987,7 +974,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/* ── Billing note ── */}
+            {/* Billing note */}
             <Card className="bg-muted/30">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">

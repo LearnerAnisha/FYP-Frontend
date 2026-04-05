@@ -1,4 +1,3 @@
-// src/api/disease.js
 import apiClient from "./client";
 
 /**
@@ -22,9 +21,6 @@ export async function detectDisease(imageFile) {
   return response.data;
 }
 
-/**
- * Get recent disease scans
- */
 export async function getRecentScans() {
   const response = await apiClient.get("/api/disease/recent-scans/");
   return response.data;

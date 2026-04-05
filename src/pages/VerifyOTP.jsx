@@ -1,10 +1,3 @@
-/**
- * VerifyOTP.jsx
- * -------------
- * Handles email OTP verification after registration.
- * Also allows user to resend OTP if it expired or wasn't received.
- */
-
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 

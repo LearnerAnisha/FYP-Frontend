@@ -13,7 +13,7 @@ import {
   HelpCircle, Shield, Headphones, BarChart3,
 } from "lucide-react";
 
-/* ── Plan data ─────────────────────────────────────────────────── */
+/* Plan data  */
 const plans = [
   {
     id: "free",
@@ -72,7 +72,7 @@ const plans = [
   },
 ];
 
-/* ── Comparison rows ───────────────────────────────────────────── */
+/* Comparison rows */
 const comparisonRows = [
   { label: "Disease scans",          values: ["5 / month",    "Unlimited",  "Unlimited"]  },
   { label: "AI chatbot",             values: ["10 msgs/day",  "Unlimited",  "Unlimited"]  },
@@ -87,7 +87,7 @@ const comparisonRows = [
   { label: "SLA guarantee",          values: ["—",            "—",          "✓"]          },
 ];
 
-/* ── Pricing FAQs ──────────────────────────────────────────────── */
+/* Pricing FAQs */
 const pricingFaqs = [
   {
     question: "Can I upgrade or downgrade my plan anytime?",
@@ -115,7 +115,7 @@ const pricingFaqs = [
   },
 ];
 
-/* ── Trust badges ──────────────────────────────────────────────── */
+/* Trust badges  */
 const trustItems = [
   { icon: Shield,      label: "Secure Payments",     sub: "eSewa, Khalti, Cards"       },
   { icon: ArrowRight,  label: "Cancel Anytime",       sub: "No lock-in contracts"       },
@@ -123,9 +123,7 @@ const trustItems = [
   { icon: BarChart3,   label: "14-Day Free Trial",    sub: "No credit card needed"      },
 ];
 
-/* ══════════════════════════════════════════════════════════════════
-   COMPONENT
-══════════════════════════════════════════════════════════════════ */
+/* COMPONENT */
 export default function PricingPage() {
   const [isYearly, setIsYearly] = useState(false);
   const navigate = useNavigate();
@@ -142,7 +140,7 @@ export default function PricingPage() {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* ── Hero ──────────────────────────────────────────────────── */}
+      {/* Hero */}
       <section className="relative pt-28 sm:pt-36 pb-16 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-hero -z-10" />
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -187,7 +185,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Plans ─────────────────────────────────────────────────── */}
+      {/* Plans */}
       <section className="pb-16 sm:pb-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-3 gap-6 lg:gap-8 max-w-5xl mx-auto">
@@ -274,7 +272,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Trust badges ──────────────────────────────────────────── */}
+      {/* Trust badges */}
       <section className="py-12 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto">
@@ -294,7 +292,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Feature comparison table ──────────────────────────────── */}
+      {/* Feature comparison table */}
       <section className="py-16 sm:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -367,7 +365,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Pricing FAQ ───────────────────────────────────────────── */}
+      {/*  Pricing FAQ */}
       <section className="py-16 sm:py-24 bg-muted/30">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-12">
@@ -406,7 +404,7 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* ── Bottom CTA ────────────────────────────────────────────── */}
+      {/* Bottom CTA */}
       <section className="py-16 sm:py-24">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <Card className="bg-gradient-primary text-primary-foreground border-0 shadow-xl max-w-4xl mx-auto">

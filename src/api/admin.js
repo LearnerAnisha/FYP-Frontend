@@ -60,17 +60,12 @@ apiClient.interceptors.response.use(
 
 // AUTH
 
-/**
- * Admin login
- * POST /api/admin/login/
- */
+// Admin login
 export const adminLogin = (credentials) => {
   return apiClient.post("/login/", credentials);
 };
 
-/**
- * Admin logout
- */
+// Admin logout
 export const adminLogout = () => {
   localStorage.removeItem("admin_access_token");
   localStorage.removeItem("admin_refresh_token");

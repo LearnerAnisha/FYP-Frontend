@@ -1,12 +1,3 @@
-/**
- * lib/auth.js
- * -----------
- * Authentication utilities for user session management
- */
-
-/**
- * Store user authentication data
- */
 export const setAuth = (access, refresh, user) => {
   localStorage.setItem("access", access);
   localStorage.setItem("refresh", refresh);

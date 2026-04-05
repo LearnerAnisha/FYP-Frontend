@@ -1,22 +1,3 @@
-/**
- * AuthPage.jsx
- * -------------
- * This component provides the user interface for authentication,
- * including:
- * 1. User registration (Sign Up)
- * 2. User login (Sign In)
- *
- * Design Principles Applied:
- * - Separation of concerns (API logic is handled in auth.js)
- * - OTP-based email verification workflow
- * - Structured backend error handling
- * - JWT-based authentication
- *
- * NOTE:
- * - After registration, users are redirected to OTP verification.
- * - Direct dashboard access is only allowed after successful login.
- */
-
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -49,12 +30,6 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
-  /**
-   * Extracts a meaningful error message from backend responses.
-   *
-   * This method ensures that frontend components remain
-   * decoupled from backend error response formats.
-   */
   const extractErrorMessage = (error) => {
     const data = error.response?.data;
 
@@ -72,15 +47,6 @@ export default function AuthPage() {
     return "Invalid request.";
   };
 
-  /**
-   * Handles user login.
-   *
-   * Workflow:
-   * - Accepts email or phone as identifier
-   * - Sends credentials to backend
-   * - Stores JWT tokens upon success
-   * - Redirects user to dashboard
-   */
   const handleSignIn = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -105,14 +71,6 @@ export default function AuthPage() {
     }
   };
 
-  /**
-   * Handles user registration.
-   *
-   * Workflow:
-   * - Sends registration data to backend
-   * - Backend sends OTP to user's email
-   * - User is redirected to OTP verification page
-   */
   const handleSignUp = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -179,7 +137,7 @@ export default function AuthPage() {
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
           </TabsList>
 
-          {/* ---------------- SIGN IN ---------------- */}
+          {/* SIGN IN */}
           <TabsContent value="signin">
             <Card>
               <CardHeader>
@@ -218,7 +176,7 @@ export default function AuthPage() {
             </Card>
           </TabsContent>
 
-          {/* ---------------- SIGN UP ---------------- */}
+          {/* SIGN UP */}
           <TabsContent value="signup">
             <Card>
               <CardHeader>

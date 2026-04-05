@@ -366,13 +366,13 @@ function LineChart({ historicalData = [], forecastData = [], loading = false, er
 
 /* MAIN COMPONENT */
 export default function PricePredictor() {
-  /* ── Live market ── */
+  /* Live market */
   const [analysis, setAnalysis] = useState(null);
   const [analysisLoading, setAnalysisLoading] = useState(true);
   const [analysisError, setAnalysisError] = useState(null);
   const [liveSearch, setLiveSearch] = useState("");
 
-  /* ── Master Product (for commodity dropdown + Master Product tab) ── */
+  /* Master Product (for commodity dropdown + Master Product tab) */
   const [prices, setPrices] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState(null);
@@ -382,7 +382,7 @@ export default function PricePredictor() {
 
   const CACHE_DURATION = 5 * 60 * 1000;
 
-  /* ── Predictor tab ── */
+  /* Predictor tab */
   const [selectedCrop, setSelectedCrop] = useState("");
 
   // Per-crop history (fetched from history-last-month/:commodity)
@@ -397,7 +397,7 @@ export default function PricePredictor() {
   const [forecastError, setForecastError] = useState(null);
   const [forecastRetry, setForecastRetry] = useState(0);
 
-  /* ══ DEBOUNCE product search ══ */
+  /* DEBOUNCE product search */
   useEffect(() => {
     if (productSearch.trim().length < 2) {
       setDebouncedSearch("");
@@ -407,7 +407,7 @@ export default function PricePredictor() {
     return () => clearTimeout(t);
   }, [productSearch]);
 
-  /* ══ FETCH — market analysis ══ */
+  /* FETCH — market analysis */
   const loadAnalysis = useCallback(async () => {
     const cacheKey = "marketAnalysis";
     const cached = sessionStorage.getItem(cacheKey);
@@ -454,7 +454,7 @@ export default function PricePredictor() {
 
   useEffect(() => { loadAnalysis(); }, [loadAnalysis]);
 
-  /* ══ FETCH — master product prices (used for both the tab AND the commodity dropdown) ══ */
+  /* FETCH — master product prices (used for both the tab AND the commodity dropdown) */
   useEffect(() => {
     const controller = new AbortController();
     const cacheKey = `marketPrices_${debouncedSearch}_${productOrdering}`;
@@ -508,10 +508,10 @@ export default function PricePredictor() {
     return () => controller.abort();
   }, [debouncedSearch, productOrdering]);
 
-  /* ══ FETCH — per-crop 30-day history (only when a crop is selected) ══
+  /* FETCH — per-crop 30-day history (only when a crop is selected) ══
      Uses LastMonthHistoryView: GET /api/market/history-last-month/:commodity/
      This is fast because it's filtered server-side, not the full history dump.
-  ══ */
+   */
   useEffect(() => {
     if (!selectedCrop) return;
     const cacheKey = `cropHistory_${selectedCrop}`;
@@ -546,7 +546,7 @@ export default function PricePredictor() {
     return () => { cancelled = true; };
   }, [selectedCrop, historyRetry]);
 
-  /* ══ FETCH — AI forecast ══ */
+  /* FETCH — AI forecast */
   const loadForecast = useCallback(async () => {
     if (!selectedCrop) return;
     const cacheKey = `forecast_${selectedCrop}`;
@@ -593,7 +593,7 @@ export default function PricePredictor() {
 
   useEffect(() => { loadForecast(); }, [loadForecast]);
 
-  /* ══ DERIVED DATA ══ */
+  /* DERIVED DATA */
 
   // Commodity options come from MasterProduct — already loaded, instant
   const commodityOptions = useMemo(
@@ -700,7 +700,7 @@ export default function PricePredictor() {
   const forecastNotTrained = forecastError === "not_trained";
   const forecastGenericError = forecastError && forecastError !== "not_trained" ? forecastError : null;
 
-  /* ══ RENDER ══ */
+  /* RENDER */
   return (
     <DashboardLayout>
       <div className="space-y-6">
@@ -775,7 +775,7 @@ export default function PricePredictor() {
             <TabsTrigger value="predictor">Price Predictor</TabsTrigger>
           </TabsList>
 
-          {/* ── LIVE MARKET TAB ── */}
+          {/* LIVE MARKET TAB */}
           <TabsContent value="market" className="space-y-6">
             <Card>
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -837,7 +837,7 @@ export default function PricePredictor() {
             </Card>
           </TabsContent>
 
-          {/* ── MASTER PRODUCT TAB ── */}
+          {/* MASTER PRODUCT TAB */}
           <TabsContent value="latest">
             <Card>
               <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -920,7 +920,7 @@ export default function PricePredictor() {
             </Card>
           </TabsContent>
 
-          {/* ── PRICE PREDICTOR TAB ── */}
+          {/* PRICE PREDICTOR TAB */}
           <TabsContent value="predictor" className="space-y-6">
 
             {historyError && (

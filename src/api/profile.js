@@ -29,10 +29,6 @@ export async function updateProfile(data) {
   return response.data;
 }
 
-/**
- * Change logged-in user's password
- * POST /api/change-password/
- */
 export async function changePassword(data) {
   const response = await apiClient.post("/api/auth/change-password/", data);
   return response.data;

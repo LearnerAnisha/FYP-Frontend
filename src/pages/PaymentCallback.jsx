@@ -90,7 +90,7 @@ export default function PaymentCallback() {
   );
 }
 
-/* ── Sub-states ─────────────────────────────────────────────────────────────── */
+/* Sub-states */
 
 function LoadingState({ attempts }) {
   return (
@@ -232,7 +232,7 @@ function TimeoutState({ navigate }) {
   );
 }
 
-/* ── Shared UI ── */
+/* Shared UI */
 function DetailRow({ label, value, mono = false, highlight = false }) {
   return (
     <div className="flex items-center justify-between gap-4 py-1 border-b border-border/50 last:border-0">

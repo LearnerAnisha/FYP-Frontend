@@ -21,11 +21,11 @@ export const DashboardLayout = ({ children }) => {
   const { isDark, toggleDark } = useDarkMode();
 
   const navItems = [
-    { name: "Dashboard",            href: "/dashboard",          icon: LayoutDashboard },
-    { name: "Disease Detection",    href: "/disease-detection",  icon: Scan            },
-    { name: "Weather & Irrigation", href: "/weather-irrigation", icon: CloudRain       },
-    { name: "Price Predictor",      href: "/price-predictor",    icon: TrendingUp      },
-    { name: "AI Assistant",         href: "/chatbot",            icon: MessageSquare   },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+    { name: "Disease Detection", href: "/disease-detection", icon: Scan },
+    { name: "Weather & Irrigation", href: "/weather-irrigation", icon: CloudRain },
+    { name: "Price Predictor", href: "/price-predictor", icon: TrendingUp },
+    { name: "AI Assistant", href: "/chatbot", icon: MessageSquare },
   ];
 
   const handleLogout = () => navigate("/");
