@@ -1,336 +1,425 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Search,
+  RefreshCw,
+  CreditCard,
+  CheckCircle2,
+  XCircle,
+  Pencil,
+  Trash2,
+  CalendarDays,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   getSubscriptions,
   updateSubscription,
   deleteSubscription,
+  getDashboardStats,
 } from "@/api/admin";
-import {
-  CreditCard, Search, RefreshCw, ChevronLeft,
-  ChevronRight, CheckCircle, XCircle, Trash2,
-  ToggleLeft, ToggleRight, Calendar, User,
-} from "lucide-react";
-import { toast } from "sonner";
 
-const PLAN_COLORS = {
-  BASIC: "bg-slate-100 text-slate-700",
-  PRO: "bg-blue-100 text-blue-700",
-  PREMIUM: "bg-purple-100 text-purple-700",
-};
-
-const StatusBadge = ({ active }) =>
-  active ? (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">
-      <CheckCircle className="w-3 h-3" /> Active
-    </span>
-  ) : (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">
-      <XCircle className="w-3 h-3" /> Inactive
-    </span>
-  );
-
-const PlanBadge = ({ plan }) => (
-  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${PLAN_COLORS[plan] ?? "bg-gray-100 text-gray-700"}`}>
-    {plan}
-  </span>
+const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
+  <Card>
+    <CardContent className="p-5 flex items-center gap-4">
+      <div className="w-11 h-11 rounded-xl bg-muted flex items-center justify-center">
+        <Icon className={`w-5 h-5 ${color}`} />
+      </div>
+      <div>
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-display font-bold text-foreground">{value}</p>
+      </div>
+    </CardContent>
+  </Card>
 );
-
-const formatDate = (iso) =>
-  iso ? new Date(iso).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—";
-
-const isExpired = (iso) => iso && new Date(iso) < new Date();
 
 export default function SubscriptionManager() {
   const [subscriptions, setSubscriptions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [planFilter, setPlanFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [selected, setSelected] = useState(null); // detail modal
-  const [deleting, setDeleting] = useState(null);
-  const PAGE_SIZE = 20;
+  const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
+  const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0 });
 
-  const load = useCallback(async () => {
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [plan, setPlan] = useState("");
+  const [isActive, setIsActive] = useState("");
+  const [page, setPage] = useState(1);
+
+  const [editingSub, setEditingSub] = useState(null);
+  const [form, setForm] = useState({
+    plan: "",
+    is_active: true,
+    start_date: "",
+    end_date: "",
+  });
+
+  const loadSubscriptions = async (customPage = page) => {
     setLoading(true);
+    setError("");
+
     try {
-      const params = { page, page_size: PAGE_SIZE };
-      if (search) params.search = search;
-      if (planFilter) params.plan = planFilter;
-      if (statusFilter) params.is_active = statusFilter;
-      const data = await getSubscriptions(params);
-      setSubscriptions(data.results ?? data);
-      setTotalCount(data.count ?? (data.results ?? data).length);
-    } catch {
-      toast.error("Failed to load subscriptions.");
+      const [subRes, statsRes] = await Promise.all([
+        getSubscriptions({
+          page: customPage,
+          search: search || undefined,
+          plan: plan || undefined,
+          is_active: isActive || undefined,
+        }),
+        getDashboardStats(),
+      ]);
+
+      const list = Array.isArray(subRes) ? subRes : subRes?.results || [];
+      setSubscriptions(list);
+      setMeta({
+        count: subRes?.count || list.length,
+        next: subRes?.next || null,
+        previous: subRes?.previous || null,
+      });
+
+      setSummary({
+        total: statsRes?.subscriptions?.total || 0,
+        active: statsRes?.subscriptions?.active || 0,
+        inactive: statsRes?.subscriptions?.inactive || 0,
+      });
+    } catch (err) {
+      setError("Failed to load subscriptions.");
     } finally {
       setLoading(false);
     }
-  }, [page, search, planFilter, statusFilter]);
+  };
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    loadSubscriptions(page);
+  }, [page]);
 
-  // Reset to page 1 on filter change
-  useEffect(() => { setPage(1); }, [search, planFilter, statusFilter]);
+  const pageStats = useMemo(() => {
+    return {
+      expiringSoon: subscriptions.filter((s) => {
+        if (!s?.end_date) return false;
+        const end = new Date(s.end_date);
+        const now = new Date();
+        const diff = (end - now) / (1000 * 60 * 60 * 24);
+        return diff >= 0 && diff <= 7;
+      }).length,
+    };
+  }, [subscriptions]);
 
-  const handleToggleActive = async (sub) => {
+  const applyFilters = () => {
+    setPage(1);
+    loadSubscriptions(1);
+  };
+
+  const resetFilters = () => {
+    setSearch("");
+    setPlan("");
+    setIsActive("");
+    setPage(1);
+    setTimeout(() => loadSubscriptions(1), 0);
+  };
+
+  const openEdit = (sub) => {
+    setEditingSub(sub);
+    setForm({
+      plan: sub?.plan || "",
+      is_active: !!sub?.is_active,
+      start_date: sub?.start_date ? String(sub.start_date).slice(0, 10) : "",
+      end_date: sub?.end_date ? String(sub.end_date).slice(0, 10) : "",
+    });
+  };
+
+  const closeEdit = () => {
+    setEditingSub(null);
+    setForm({
+      plan: "",
+      is_active: true,
+      start_date: "",
+      end_date: "",
+    });
+  };
+
+  const saveEdit = async (e) => {
+    e.preventDefault();
+    if (!editingSub) return;
+
+    setActionLoading(true);
     try {
-      await updateSubscription(sub.id, { is_active: !sub.is_active });
-      toast.success(`Subscription ${sub.is_active ? "deactivated" : "activated"}.`);
-      load();
-    } catch {
-      toast.error("Failed to update subscription.");
+      await updateSubscription(editingSub.id || editingSub.pk, form);
+      closeEdit();
+      loadSubscriptions();
+    } catch (err) {
+      setError(
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Failed to update subscription."
+      );
+    } finally {
+      setActionLoading(false);
     }
   };
 
   const handleDelete = async (id) => {
-    setDeleting(id);
+    if (!window.confirm("Delete this subscription?")) return;
     try {
       await deleteSubscription(id);
-      toast.success("Subscription deleted.");
-      setSelected(null);
-      load();
+      loadSubscriptions();
     } catch {
-      toast.error("Failed to delete subscription.");
-    } finally {
-      setDeleting(null);
+      setError("Failed to delete subscription.");
     }
   };
 
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+  const inputClass =
+    "w-full h-10 rounded-lg border border-border bg-background px-3 text-sm outline-none focus:border-primary";
 
   return (
-    <div className="p-8">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-            <CreditCard className="w-6 h-6 text-indigo-600" />
-            Subscriptions
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            {totalCount} total subscription{totalCount !== 1 ? "s" : ""}
-          </p>
-        </div>
-        <button
-          onClick={load}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50 transition"
-        >
-          <RefreshCw className="w-4 h-4" /> Refresh
-        </button>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-display font-bold text-foreground">Subscriptions</h1>
+        <p className="text-muted-foreground">
+          Monitor active plans, expirations, and subscription status.
+        </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3 mb-6">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-            placeholder="Search by name or email…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          value={planFilter}
-          onChange={(e) => setPlanFilter(e.target.value)}
-        >
-          <option value="">All plans</option>
-          <option value="BASIC">Basic</option>
-          <option value="PRO">Pro</option>
-          <option value="PREMIUM">Premium</option>
-        </select>
-
-        <select
-          className="px-3 py-2 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-        >
-          <option value="">All statuses</option>
-          <option value="true">Active</option>
-          <option value="false">Inactive</option>
-        </select>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard title="Total Plans" value={summary.total} icon={CreditCard} color="text-primary" />
+        <StatCard title="Active" value={summary.active} icon={CheckCircle2} color="text-success" />
+        <StatCard title="Inactive" value={summary.inactive} icon={XCircle} color="text-muted-foreground" />
+        <StatCard title="Expiring Soon" value={pageStats.expiringSoon} icon={CalendarDays} color="text-chart-4" />
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow border border-slate-200 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center h-48">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600" />
-          </div>
-        ) : subscriptions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-48 text-slate-400">
-            <CreditCard className="w-10 h-10 mb-2 opacity-40" />
-            <p className="text-sm">No subscriptions found.</p>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                {["User", "Plan", "Status", "Started", "Expires", "Actions"].map((h) => (
-                  <th key={h} className="px-5 py-3 text-left text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {subscriptions.map((sub) => (
-                <tr
-                  key={sub.id}
-                  className="hover:bg-slate-50 transition cursor-pointer"
-                  onClick={() => setSelected(sub)}
-                >
-                  <td className="px-5 py-4">
-                    <div className="font-medium text-slate-900">{sub.user_name}</div>
-                    <div className="text-slate-400 text-xs">{sub.user_email}</div>
-                  </td>
-                  <td className="px-5 py-4"><PlanBadge plan={sub.plan} /></td>
-                  <td className="px-5 py-4"><StatusBadge active={sub.is_active} /></td>
-                  <td className="px-5 py-4 text-slate-600">{formatDate(sub.starts_at)}</td>
-                  <td className="px-5 py-4">
-                    <span className={isExpired(sub.expires_at) ? "text-red-500 font-medium" : "text-slate-600"}>
-                      {formatDate(sub.expires_at)}
-                      {isExpired(sub.expires_at) && " (expired)"}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      <button
-                        title={sub.is_active ? "Deactivate" : "Activate"}
-                        onClick={() => handleToggleActive(sub)}
-                        className="p-1.5 rounded-lg hover:bg-slate-100 transition text-slate-500 hover:text-indigo-600"
-                      >
-                        {sub.is_active
-                          ? <ToggleRight className="w-5 h-5 text-green-500" />
-                          : <ToggleLeft className="w-5 h-5" />}
-                      </button>
-                      <button
-                        title="Delete"
-                        disabled={deleting === sub.id}
-                        onClick={() => handleDelete(sub.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-50 transition text-slate-400 hover:text-red-600"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between px-5 py-3 border-t border-slate-100 bg-slate-50">
-            <p className="text-xs text-slate-500">
-              Page {page} of {totalPages} — {totalCount} records
-            </p>
-            <div className="flex gap-2">
-              <button
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 transition"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                disabled={page === totalPages}
-                onClick={() => setPage((p) => p + 1)}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-white disabled:opacity-40 transition"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Filters</CardTitle>
+          <CardDescription>Find subscriptions by user, plan, or status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="md:col-span-2 relative">
+              <Search className="w-4 h-4 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by user email or name"
+                className="w-full h-10 rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
+              />
             </div>
-          </div>
-        )}
-      </div>
 
-      {/* Detail Modal */}
-      {selected && (
-        <DetailModal
-          sub={selected}
-          onClose={() => setSelected(null)}
-          onToggle={() => { handleToggleActive(selected); setSelected(null); }}
-          onDelete={() => handleDelete(selected.id)}
-          deleting={deleting === selected.id}
-        />
+            <input
+              value={plan}
+              onChange={(e) => setPlan(e.target.value)}
+              placeholder="Plan name"
+              className={inputClass}
+            />
+
+            <select
+              value={isActive}
+              onChange={(e) => setIsActive(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">All status</option>
+              <option value="true">Active</option>
+              <option value="false">Inactive</option>
+            </select>
+          </div>
+
+          <div className="flex gap-3 mt-4">
+            <Button onClick={applyFilters}>
+              <Search className="w-4 h-4 mr-2" />
+              Apply
+            </Button>
+            <Button variant="outline" onClick={resetFilters}>
+              Reset
+            </Button>
+            <Button variant="outline" onClick={() => loadSubscriptions()}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+          </div>
+
+          {error && (
+            <div className="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Subscription Records</CardTitle>
+          <CardDescription>Total records: {meta.count}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="py-12 text-center text-muted-foreground">Loading subscriptions...</div>
+          ) : subscriptions.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground">No subscriptions found.</div>
+          ) : (
+            <>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border text-left">
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">User</th>
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">Plan</th>
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">Status</th>
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">Start</th>
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">End</th>
+                      <th className="py-3 pr-4 font-medium text-muted-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscriptions.map((sub) => (
+                      <tr key={sub.id || sub.pk} className="border-b border-border/60">
+                        <td className="py-4 pr-4">
+                          <div className="font-medium text-foreground">
+                            {sub?.user?.full_name || "Unknown User"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {sub?.user?.email || "-"}
+                          </div>
+                        </td>
+                        <td className="py-4 pr-4">
+                          <Badge variant="outline">{sub?.plan || "N/A"}</Badge>
+                        </td>
+                        <td className="py-4 pr-4">
+                          <Badge
+                            variant="secondary"
+                            className={
+                              sub?.is_active
+                                ? "bg-success/10 text-success hover:bg-success/10"
+                                : "bg-muted text-muted-foreground"
+                            }
+                          >
+                            {sub?.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                        </td>
+                        <td className="py-4 pr-4 text-muted-foreground">
+                          {sub?.start_date ? String(sub.start_date).slice(0, 10) : "-"}
+                        </td>
+                        <td className="py-4 pr-4 text-muted-foreground">
+                          {sub?.end_date ? String(sub.end_date).slice(0, 10) : "-"}
+                        </td>
+                        <td className="py-4 pr-4">
+                          <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => openEdit(sub)}>
+                              <Pencil className="w-4 h-4 mr-1" />
+                              Edit
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => handleDelete(sub.id || sub.pk)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Delete
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex items-center justify-between pt-4">
+                <p className="text-sm text-muted-foreground">Page {page}</p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    disabled={!meta.previous}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    disabled={!meta.next}
+                    onClick={() => setPage((p) => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {editingSub && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-xl rounded-2xl border border-border bg-card shadow-xl">
+            <div className="p-6 border-b border-border">
+              <h2 className="text-xl font-display font-semibold text-foreground">
+                Edit Subscription
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Update plan details and active state
+              </p>
+            </div>
+
+            <form onSubmit={saveEdit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2 text-foreground">Plan</label>
+                <input
+                  className={inputClass}
+                  value={form.plan}
+                  onChange={(e) => setForm((p) => ({ ...p, plan: e.target.value }))}
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-foreground">Start date</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={form.start_date}
+                    onChange={(e) => setForm((p) => ({ ...p, start_date: e.target.value }))}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-foreground">End date</label>
+                  <input
+                    type="date"
+                    className={inputClass}
+                    value={form.end_date}
+                    onChange={(e) => setForm((p) => ({ ...p, end_date: e.target.value }))}
+                  />
+                </div>
+              </div>
+
+              <label className="flex items-center gap-3 rounded-lg border border-border p-3">
+                <input
+                  type="checkbox"
+                  checked={form.is_active}
+                  onChange={(e) => setForm((p) => ({ ...p, is_active: e.target.checked }))}
+                  className="h-4 w-4 rounded border-border"
+                />
+                <span className="text-sm text-foreground">Active subscription</span>
+              </label>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={closeEdit}>
+                  Cancel
+                </Button>
+                <Button type="submit" disabled={actionLoading}>
+                  {actionLoading ? "Saving..." : "Save Changes"}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );
 }
-
-function DetailModal({ sub, onClose, onToggle, onDelete, deleting }) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      onClick={onClose}
-    >
-      <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-slate-900">Subscription detail</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">✕</button>
-        </div>
-
-        <div className="space-y-4">
-          <Row icon={<User className="w-4 h-4" />} label="User">
-            <span className="font-medium">{sub.user_name}</span>
-            <span className="text-slate-400 text-xs ml-1">({sub.user_email})</span>
-          </Row>
-          <Row icon={<CreditCard className="w-4 h-4" />} label="Plan">
-            <PlanBadge plan={sub.plan} />
-          </Row>
-          <Row icon={<CheckCircle className="w-4 h-4" />} label="Status">
-            <StatusBadge active={sub.is_active} />
-          </Row>
-          <Row icon={<Calendar className="w-4 h-4" />} label="Started">
-            {formatDate(sub.starts_at)}
-          </Row>
-          <Row icon={<Calendar className="w-4 h-4" />} label="Expires">
-            <span className={isExpired(sub.expires_at) ? "text-red-500 font-medium" : ""}>
-              {formatDate(sub.expires_at)}
-              {isExpired(sub.expires_at) && " — expired"}
-            </span>
-          </Row>
-          {sub.payment_uuid && (
-            <Row icon={<CreditCard className="w-4 h-4" />} label="Payment UUID">
-              <span className="font-mono text-xs text-slate-600 break-all">{sub.payment_uuid}</span>
-            </Row>
-          )}
-        </div>
-
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={onToggle}
-            className="flex-1 py-2 rounded-xl border border-slate-200 text-sm font-medium hover:bg-slate-50 transition"
-          >
-            {sub.is_active ? "Deactivate" : "Activate"}
-          </button>
-          <button
-            onClick={onDelete}
-            disabled={deleting}
-            className="flex-1 py-2 rounded-xl bg-red-50 text-red-600 border border-red-200 text-sm font-medium hover:bg-red-100 transition disabled:opacity-50"
-          >
-            {deleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-const Row = ({ icon, label, children }) => (
-  <div className="flex items-start gap-3">
-    <span className="mt-0.5 text-slate-400">{icon}</span>
-    <div className="flex-1 flex justify-between items-center">
-      <span className="text-sm text-slate-500 w-28 shrink-0">{label}</span>
-      <span className="text-sm text-slate-800 text-right">{children}</span>
-    </div>
-  </div>
-);

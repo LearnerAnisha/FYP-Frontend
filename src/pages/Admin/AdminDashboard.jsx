@@ -1,215 +1,286 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
-  Users, UserCheck, UserX, Shield,
-  TrendingUp, Calendar, Filter, BarChart3, Activity, CreditCard, CheckCircle, XCircle
+  Users, UserCheck, UserX, Shield, TrendingUp,
+  CreditCard, CheckCircle, XCircle, Leaf, MessageSquare,
+  DollarSign, ArrowRight, RefreshCw
 } from 'lucide-react';
+import {
+  AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  Legend, ResponsiveContainer
+} from 'recharts';
+import { getDashboardStats } from '@/api/admin';
 
-// TEMP mock (we’ll wire API later)
-const mockGetDashboardStats = async () => {
-  return {
-    overview: {
-      total_users: 1248,
-      verified_users: 1102,
-      unverified_users: 146,
-      active_users: 1180,
-      inactive_users: 68,
-      staff_users: 12,
-      total_farmers: 856
-    },
-    registrations: {
-      today: 23,
-      this_week: 167,
-      this_month: 542
-    },
-    subscriptions: {  
-      total: 320,
-      active: 250,
-      inactive: 70
-    }
-  };
-};
+// ── colour tokens aligned with user panel chart vars ──────────────────────────
+const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
 
 const AdminDashboard = () => {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    loadStats();
-  }, []);
-
-  const loadStats = async () => {
+  const load = async () => {
+    setLoading(true);
+    setError(null);
     try {
-      const data = await mockGetDashboardStats();
+      const data = await getDashboardStats();
       setStats(data);
-    } catch (err) {
-      console.error(err);
+    } catch (e) {
+      setError('Failed to load dashboard stats.');
+      console.error(e);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
+  useEffect(() => { load(); }, []);
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" />
+    </div>
+  );
+
+  if (error) return (
+    <div className="flex flex-col items-center justify-center h-64 gap-4">
+      <p className="text-destructive">{error}</p>
+      <Button onClick={load} variant="outline"><RefreshCw className="w-4 h-4 mr-2" />Retry</Button>
+    </div>
+  );
+
+  const overview = stats?.overview ?? {};
+  const regs = stats?.registrations ?? {};
+  const subs = stats?.subscriptions ?? {};
+
+  // ── derived chart datasets ─────────────────────────────────────────────────
+  const userDistPie = [
+    { name: 'Verified', value: overview.verified_users ?? 0 },
+    { name: 'Unverified', value: overview.unverified_users ?? 0 },
+    { name: 'Staff', value: overview.staff_users ?? 0 },
+  ];
+
+  const subsPie = [
+    { name: 'Active', value: subs.active ?? 0 },
+    { name: 'Inactive', value: subs.inactive ?? 0 },
+  ];
+
+  const regBar = [
+    { period: 'Today', count: regs.today ?? 0 },
+    { period: 'This Week', count: regs.this_week ?? 0 },
+    { period: 'This Month', count: regs.this_month ?? 0 },
+  ];
+
+  // weekly trend — use stats.weekly_trend if your API provides it, else derive
+  const weeklyTrend = stats?.weekly_trend ?? [
+    { day: 'Mon', users: 0 }, { day: 'Tue', users: 0 }, { day: 'Wed', users: 0 },
+    { day: 'Thu', users: 0 }, { day: 'Fri', users: 0 }, { day: 'Sat', users: 0 },
+    { day: 'Sun', users: 0 },
+  ];
+
+  const statCards = [
+    { icon: Users, title: 'Total Users', value: overview.total_users ?? 0, color: 'text-chart-1' },
+    { icon: UserCheck, title: 'Verified Users', value: overview.verified_users ?? 0, color: 'text-chart-2' },
+    { icon: UserX, title: 'Unverified', value: overview.unverified_users ?? 0, color: 'text-destructive' },
+    { icon: Shield, title: 'Staff', value: overview.staff_users ?? 0, color: 'text-chart-4' },
+    { icon: CreditCard, title: 'Total Subscriptions', value: subs.total ?? 0, color: 'text-chart-5' },
+    { icon: CheckCircle, title: 'Active Subscriptions', value: subs.active ?? 0, color: 'text-success' },
+    { icon: XCircle, title: 'Inactive Subscriptions', value: subs.inactive ?? 0, color: 'text-muted-foreground' },
+    { icon: Leaf, title: 'Total Farmers', value: overview.total_farmers ?? 0, color: 'text-primary' },
+  ];
 
   return (
-    <div className="p-8">
-      {/* Title */}
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900">Dashboard Overview</h1>
-        <p className="text-sm text-slate-500 mt-1">Welcome back</p>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-display font-bold text-foreground">Dashboard Overview</h1>
+          <p className="text-muted-foreground mt-1">Live platform analytics for Krishi Saathi</p>
+        </div>
+        <Button variant="outline" size="sm" onClick={load}>
+          <RefreshCw className="w-4 h-4 mr-2" />Refresh
+        </Button>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <StatCard icon={<Users className="w-8 h-8" />} title="Total Users" value={stats.overview.total_users} change="+12.5%" changeType="positive" gradient="from-blue-500 to-cyan-500" />
-        <StatCard icon={<UserCheck className="w-8 h-8" />} title="Verified Users" value={stats.overview.verified_users} change="+8.3%" changeType="positive" gradient="from-green-500 to-emerald-500" />
-        <StatCard icon={<UserX className="w-8 h-8" />} title="Unverified" value={stats.overview.unverified_users} change="-3.2%" changeType="negative" gradient="from-amber-500 to-orange-500" />
-        <StatCard icon={<Shield className="w-8 h-8" />} title="Staff Members" value={stats.overview.staff_users} change="+1" changeType="positive" gradient="from-purple-500 to-pink-500" />
-        <StatCard
-          icon={<CreditCard className="w-8 h-8" />}
-          title="Total Subscriptions"
-          value={stats.subscriptions?.total ?? 0}
-          change=""
-          changeType="positive"
-          gradient="from-indigo-500 to-violet-500"
-        />
-        <StatCard
-          icon={<CheckCircle className="w-8 h-8" />}
-          title="Active Subscriptions"
-          value={stats.subscriptions?.active ?? 0}
-          change=""
-          changeType="positive"
-          gradient="from-emerald-500 to-teal-500"
-        />
-        <StatCard
-          icon={<XCircle className="w-8 h-8" />}
-          title="Inactive Subscriptions"
-          value={stats.subscriptions?.inactive ?? 0}
-          change=""
-          changeType="negative"
-          gradient="from-rose-500 to-pink-500"
-        />
+      {/* ── Stat Cards ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {statCards.map((s, i) => {
+          const Icon = s.icon;
+          return (
+            <Card key={i}>
+              <CardContent className="p-6 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Icon className={`w-6 h-6 ${s.color}`} />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">{s.title}</p>
+                  <p className="text-2xl font-display font-bold text-foreground">
+                    {s.value.toLocaleString()}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Middle Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Registrations */}
-        <div className="lg:col-span-2 bg-white rounded-2xl shadow-lg border p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h2 className="text-xl font-bold">Recent Registrations</h2>
-              <p className="text-sm text-slate-500">User growth over time</p>
+      {/* ── Charts Row 1 ───────────────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-6">
+
+        {/* Registration Bar Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="font-display">New Registrations</CardTitle>
+            <CardDescription>Users registered by period</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={regBar} barSize={40}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Bar dataKey="count" fill="hsl(var(--primary))" radius={[6, 6, 0, 0]} name="Users" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* User Distribution Pie */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">User Distribution</CardTitle>
+            <CardDescription>Verified vs unverified vs staff</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={userDistPie} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                  paddingAngle={3} dataKey="value">
+                  {userDistPie.map((_, index) => (
+                    <Cell key={index} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex flex-wrap gap-3 justify-center mt-2">
+              {userDistPie.map((entry, i) => (
+                <div key={i} className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: COLORS[i % COLORS.length] }} />
+                  {entry.name}: <strong className="text-foreground ml-0.5">{entry.value}</strong>
+                </div>
+              ))}
             </div>
-            <Calendar className="text-slate-400" />
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <MetricCard label="Today" value={stats.registrations.today} icon={<TrendingUp className="text-blue-500" />} />
-            <MetricCard label="This Week" value={stats.registrations.this_week} icon={<TrendingUp className="text-green-500" />} />
-            <MetricCard label="This Month" value={stats.registrations.this_month} icon={<TrendingUp className="text-purple-500" />} />
-          </div>
-        </div>
-
-        {/* Distribution */}
-        <div className="bg-white rounded-2xl shadow-lg border p-6">
-          <h2 className="text-xl font-bold mb-6">User Distribution</h2>
-          <ProgressBar label="Active Users" value={stats.overview.active_users} total={stats.overview.total_users} color="bg-green-500" />
-          <ProgressBar label="Inactive Users" value={stats.overview.inactive_users} total={stats.overview.total_users} color="bg-slate-400" />
-          <ProgressBar label="Farmers" value={stats.overview.total_farmers} total={stats.overview.total_users} color="bg-amber-500" />
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-2xl shadow-lg border p-6">
-        <h2 className="text-xl font-bold mb-6">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <ActionButton icon={<Users />} label="Manage Users" description="View and edit users" />
-          <ActionButton icon={<Activity />} label="View Logs" description="Check activity logs" />
-          <ActionButton icon={<Filter />} label="Filter Data" description="Advanced filtering" />
-          <ActionButton icon={<BarChart3 />} label="Analytics" description="Detailed reports" />
+      {/* ── Charts Row 2 ───────────────────────────────────────────────────── */}
+      <div className="grid lg:grid-cols-3 gap-6">
+
+        {/* Weekly Activity Area Chart */}
+        <Card className="lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="font-display">Weekly User Activity</CardTitle>
+            <CardDescription>Daily active registrations this week</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={220}>
+              <AreaChart data={weeklyTrend}>
+                <defs>
+                  <linearGradient id="primaryGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="day" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip
+                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                  labelStyle={{ color: 'hsl(var(--foreground))' }}
+                />
+                <Area type="monotone" dataKey="users" stroke="hsl(var(--primary))"
+                  strokeWidth={2} fill="url(#primaryGrad)" name="Users" />
+              </AreaChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* Subscription Pie */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Subscriptions</CardTitle>
+            <CardDescription>Active vs inactive plans</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center">
+            <ResponsiveContainer width="100%" height={180}>
+              <PieChart>
+                <Pie data={subsPie} cx="50%" cy="50%" innerRadius={50} outerRadius={80}
+                  paddingAngle={3} dataKey="value">
+                  <Cell fill="hsl(var(--success))" />
+                  <Cell fill="hsl(var(--muted-foreground))" />
+                </Pie>
+                <Tooltip
+                  contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8 }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+            <div className="flex gap-4 mt-2">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Active</p>
+                <p className="text-lg font-display font-bold text-success">{subs.active ?? 0}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground">Inactive</p>
+                <p className="text-lg font-display font-bold text-muted-foreground">{subs.inactive ?? 0}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* ── Quick Actions (same pattern as user Dashboard) ─────────────────── */}
+      <div>
+        <h2 className="text-xl font-display font-semibold text-foreground mb-4">Quick Actions</h2>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { title: 'Manage Users', desc: 'View and edit user accounts', icon: Users, path: '/admin/users' },
+            { title: 'Chat Logs', desc: 'Review AI conversations', icon: MessageSquare, path: '/admin/chat-conversations' },
+            { title: 'Disease Scans', desc: 'Crop disease scan results', icon: Leaf, path: '/admin/scan-results' },
+            { title: 'Price Predictor', desc: 'Manage prediction data', icon: DollarSign, path: '/admin/price-predictor' },
+          ].map((a, i) => {
+            const Icon = a.icon;
+            return (
+              <Card key={i}
+                className="group cursor-pointer hover:shadow-elegant transition-smooth hover:border-primary/50"
+                onClick={() => navigate(a.path)}>
+                <CardContent className="p-6 space-y-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                    <Icon className="w-6 h-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-foreground mb-1">{a.title}</h3>
+                    <p className="text-sm text-muted-foreground">{a.desc}</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors" />
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       </div>
     </div>
   );
 };
-
-// Components
-const NavItem = ({ icon, label, active, collapsed, onClick }) => (
-  <button
-    onClick={onClick}
-    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all ${active
-      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-      : 'text-slate-600 hover:bg-slate-100'
-      }`}
-  >
-    {icon}
-    {!collapsed && <span className="font-medium">{label}</span>}
-  </button>
-);
-
-const StatCard = ({ icon, title, value, change, changeType, gradient }) => (
-  <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6 hover:shadow-xl transition-shadow">
-    <div className="flex items-start justify-between mb-4">
-      <div className={`p-3 rounded-xl bg-gradient-to-br ${gradient} text-white shadow-md`}>
-        {icon}
-      </div>
-      <span className={`text-sm font-semibold px-2 py-1 rounded-full ${changeType === 'positive' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
-        }`}>
-        {change}
-      </span>
-    </div>
-    <h3 className="text-sm font-medium text-slate-600 mb-1">{title}</h3>
-    <p className="text-3xl font-bold text-slate-900">{value.toLocaleString()}</p>
-  </div>
-);
-
-
-const MetricCard = ({ label, value, icon }) => (
-  <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-    <div className="flex items-center justify-between mb-2">
-      <p className="text-sm font-medium text-slate-600">{label}</p>
-      {icon}
-    </div>
-    <p className="text-2xl font-bold text-slate-900">{value}</p>
-  </div>
-);
-
-const ProgressBar = ({ label, value, total, color }) => {
-  const percentage = Math.round((value / total) * 100);
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium text-slate-700">{label}</span>
-        <span className="text-sm font-semibold text-slate-900">{value}</span>
-      </div>
-      <div className="w-full bg-slate-200 rounded-full h-2">
-        <div
-          className={`${color} h-2 rounded-full transition-all duration-500`}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
-    </div>
-  );
-};
-
-const ActionButton = ({ icon, label, description, onClick }) => (
-  <button
-    onClick={onClick}
-    className="flex items-start gap-4 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-indigo-300 hover:bg-indigo-50 transition-all group"
-  >
-    <div className="p-2 bg-white rounded-lg border border-slate-200 group-hover:border-indigo-300 transition-colors">
-      {icon}
-    </div>
-    <div className="text-left">
-      <h3 className="font-semibold text-slate-900 mb-1">{label}</h3>
-      <p className="text-sm text-slate-500">{description}</p>
-    </div>
-  </button>
-);
 
 export default AdminDashboard;
