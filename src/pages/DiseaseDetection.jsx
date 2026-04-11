@@ -1,32 +1,116 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { detectDisease, getRecentScans } from "@/api/disease";
 import { DashboardLayout } from "@/components/DashboardLayout";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Scan, Upload, Camera, AlertCircle, CheckCircle2, Leaf, ArrowRight } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  Scan,
+  Upload,
+  Camera,
+  AlertCircle,
+  CheckCircle2,
+  Leaf,
+  ArrowRight,
+  RefreshCw,
+  XCircle,
+  Info,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
 import { toast } from "sonner";
+
+const SEVERITY_VARIANT = {
+  None: "secondary",
+  Mild: "secondary",
+  Moderate: "outline",
+  Severe: "destructive",
+  Unknown: "outline",
+};
+
+const SUPPORTED_CROPS = [
+  "Apple", "Blueberry", "Cherry", "Corn",
+  "Grape", "Orange", "Peach", "Bell Pepper",
+  "Potato", "Raspberry", "Soybean", "Squash",
+  "Strawberry", "Tomato",
+];
+
+function SupportedCropsList({ crops }) {
+  return (
+    <div className="flex flex-wrap gap-1.5 mt-3">
+      {crops.map((crop) => (
+        <span
+          key={crop}
+          className="text-xs px-2 py-1 rounded-full bg-primary/10 text-primary font-medium"
+        >
+          {crop}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 export default function DiseaseDetection() {
   const [selectedImage, setSelectedImage] = useState(null);
+  const [imageFile, setImageFile] = useState(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
-  const [imageFile, setImageFile] = useState(null);
+
+  // error state: null | { type: "not_a_plant" | "unsupported_crop" | "generic", message, supportedCrops? }
+  const [errorState, setErrorState] = useState(null);
+
+  const [recentScans, setRecentScans] = useState([]);
+  const [scansLoading, setScansLoading] = useState(true);
+  const [showAllScans, setShowAllScans] = useState(false);
+  const [cropsExpanded, setCropsExpanded] = useState(false);
+
+  useEffect(() => {
+    async function loadScans() {
+      try {
+        const data = await getRecentScans();
+        setRecentScans(data);
+      } catch {
+        // non-critical
+      } finally {
+        setScansLoading(false);
+      }
+    }
+    loadScans();
+  }, []);
+
+  const clearState = () => {
+    setResult(null);
+    setErrorState(null);
+  };
 
   const handleImageUpload = (e) => {
     const file = e.target.files?.[0];
+    if (!file) return;
+    setImageFile(file);
+    clearState();
+    const reader = new FileReader();
+    reader.onloadend = () => setSelectedImage(reader.result);
+    reader.readAsDataURL(file);
+  };
 
-    if (file) {
-      setImageFile(file);
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    handleImageUpload({ target: { files: [file] } });
+  };
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSelectedImage(reader.result);
-        setResult(null);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleReset = () => {
+    setSelectedImage(null);
+    setImageFile(null);
+    clearState();
   };
 
   const handleAnalyze = async () => {
@@ -36,24 +120,44 @@ export default function DiseaseDetection() {
     }
 
     setAnalyzing(true);
+    clearState();
 
     try {
       const data = await detectDisease(imageFile);
       setResult(data);
-      toast.success("Analysis completed successfully!");
+      toast.success("Analysis complete!");
+
+      try {
+        const scans = await getRecentScans();
+        setRecentScans(scans);
+      } catch {
+        // ignore
+      }
     } catch (error) {
-      console.error(error);
-      toast.error("Failed to analyze image");
+      const res = error?.response;
+      const data = res?.data;
+
+      if (res?.status === 422 && data?.error === "not_a_plant") {
+        setErrorState({ type: "not_a_plant", message: data.message });
+      } else if (res?.status === 422 && data?.error === "unsupported_crop") {
+        setErrorState({
+          type: "unsupported_crop",
+          message: data.message,
+          supportedCrops: data.supported_crops ?? [],
+        });
+      } else {
+        setErrorState({
+          type: "generic",
+          message: data?.error || "Something went wrong. Please try again.",
+        });
+        toast.error("Analysis failed");
+      }
     } finally {
       setAnalyzing(false);
     }
   };
 
-  const recentScans = [
-    { crop: "Rice", disease: "Healthy", date: "2 hours ago", status: "success" },
-    { crop: "Wheat", disease: "Rust", date: "Yesterday", status: "warning" },
-    { crop: "Tomato", disease: "Healthy", date: "2 days ago", status: "success" }
-  ];
+  const visibleScans = showAllScans ? recentScans : recentScans.slice(0, 3);
 
   return (
     <DashboardLayout>
@@ -64,12 +168,15 @@ export default function DiseaseDetection() {
             Crop Disease Detection
           </h1>
           <p className="text-muted-foreground">
-            Upload a photo of your crop to get instant AI-powered disease identification.
+            Upload a photo of your crop leaf to get instant AI-powered disease
+            identification.
           </p>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-6">
-          {/* Upload Section */}
+        {/* Grid: items-start prevents sidebar from stretching main card */}
+        <div className="grid lg:grid-cols-3 gap-6 items-start">
+
+          {/*  Main Card  */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -81,24 +188,27 @@ export default function DiseaseDetection() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              {/* Upload Area */}
+
+              {/* Drop Zone */}
               <div
                 className="border-2 border-dashed border-border rounded-xl p-8 sm:p-12 text-center hover:border-primary/50 transition-smooth cursor-pointer group"
-                onClick={() => document.getElementById('image-upload').click()}
+                onClick={() => document.getElementById("image-upload").click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleDrop}
               >
                 {selectedImage ? (
                   <div className="space-y-4">
                     <img
                       src={selectedImage}
                       alt="Uploaded crop"
-                      className="max-h-64 mx-auto rounded-lg shadow-lg"
+                      className="max-h-64 mx-auto rounded-lg shadow-lg object-contain"
                     />
                     <Button
                       variant="outline"
+                      size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedImage(null);
-                        setResult(null);
+                        handleReset();
                       }}
                     >
                       Change Image
@@ -110,7 +220,7 @@ export default function DiseaseDetection() {
                       <Upload className="w-10 h-10 text-primary" />
                     </div>
                     <div>
-                      <p className="text-lg font-semibold text-foreground mb-2">
+                      <p className="text-lg font-semibold text-foreground mb-1">
                         Click to upload or drag and drop
                       </p>
                       <p className="text-sm text-muted-foreground">
@@ -137,7 +247,7 @@ export default function DiseaseDetection() {
                 >
                   {analyzing ? (
                     <>
-                      <span className="animate-spin mr-2">○</span>
+                      <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
                       Analyzing...
                     </>
                   ) : (
@@ -147,35 +257,98 @@ export default function DiseaseDetection() {
                     </>
                   )}
                 </Button>
-                <Button variant="outline" className="flex-1">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => document.getElementById("image-upload").click()}
+                >
                   <Camera className="w-4 h-4 mr-2" />
                   Take Photo
                 </Button>
               </div>
 
-              {/* Results */}
+              {/* Error States  */}
+
+              {errorState?.type === "not_a_plant" && (
+                <Alert variant="destructive" className="animate-fade-in">
+                  <XCircle className="w-5 h-5" />
+                  <AlertTitle className="ml-2">Not a plant leaf</AlertTitle>
+                  <AlertDescription className="ml-2">
+                    {errorState.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {errorState?.type === "unsupported_crop" && (
+                <Alert className="border-warning/40 bg-warning/5 animate-fade-in">
+                  <AlertCircle className="w-5 h-5 text-warning" />
+                  <AlertTitle className="ml-2 text-foreground">
+                    Crop not supported
+                  </AlertTitle>
+                  <AlertDescription className="ml-2">
+                    <p className="text-muted-foreground mb-1">
+                      {errorState.message}
+                    </p>
+                    <p className="text-sm font-medium text-foreground mt-2">
+                      Supported crops:
+                    </p>
+                    <SupportedCropsList crops={errorState.supportedCrops} />
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {errorState?.type === "generic" && (
+                <Alert variant="destructive" className="animate-fade-in">
+                  <AlertCircle className="w-5 h-5" />
+                  <AlertTitle className="ml-2">Analysis failed</AlertTitle>
+                  <AlertDescription className="ml-2">
+                    {errorState.message}
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* Success Result */}
               {result && (
                 <div className="space-y-4 animate-fade-in">
-                  <Alert className="border-primary/20 bg-primary/5">
-                    <CheckCircle2 className="w-5 h-5 text-success" />
+                  <Alert
+                    className={
+                      result.isHealthy
+                        ? "border-green-500/20 bg-green-500/5"
+                        : "border-primary/20 bg-primary/5"
+                    }
+                  >
+                    <CheckCircle2
+                      className={`w-5 h-5 ${result.isHealthy ? "text-green-500" : "text-primary"
+                        }`}
+                    />
                     <AlertDescription className="ml-2">
-                      Analysis completed with {result.confidence}% confidence
+                      {result.isHealthy
+                        ? `Your crop looks healthy! (${result.confidence}% confidence)`
+                        : `Disease detected with ${result.confidence}% confidence`}
                     </AlertDescription>
                   </Alert>
 
                   <Card className="border-primary/20">
                     <CardContent className="p-6 space-y-6">
-                      {/* Detection Info */}
+                      {/* Crop / Disease row */}
                       <div className="grid sm:grid-cols-2 gap-4">
                         <div className="space-y-1">
                           <p className="text-sm text-muted-foreground">Crop Type</p>
-                          <p className="text-lg font-semibold text-foreground">{result.cropType}</p>
+                          <p className="text-lg font-semibold text-foreground">
+                            {result.cropType}
+                          </p>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-sm text-muted-foreground">Disease Detected</p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-lg font-semibold text-foreground">{result.disease}</p>
-                            <Badge variant={result.severity === "Severe" ? "destructive" : "secondary"}>
+                          <p className="text-sm text-muted-foreground">
+                            {result.isHealthy ? "Status" : "Disease Detected"}
+                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-lg font-semibold text-foreground">
+                              {result.disease}
+                            </p>
+                            <Badge
+                              variant={SEVERITY_VARIANT[result.severity] ?? "outline"}
+                            >
                               {result.severity}
                             </Badge>
                           </div>
@@ -191,36 +364,46 @@ export default function DiseaseDetection() {
                       </div>
 
                       {/* Treatment */}
-                      <div className="space-y-3">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2">
-                          <AlertCircle className="w-5 h-5 text-primary" />
-                          Recommended Treatment
-                        </h4>
-                        <ul className="space-y-2">
-                          {result.treatment.map((step, index) => (
-                            <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                              <span>{step}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {!result.isHealthy && result.treatment?.length > 0 && (
+                        <div className="space-y-3">
+                          <h4 className="font-semibold text-foreground flex items-center gap-2">
+                            <AlertCircle className="w-5 h-5 text-primary" />
+                            Recommended Treatment
+                          </h4>
+                          <ul className="space-y-2">
+                            {result.treatment.map((step, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm text-muted-foreground"
+                              >
+                                <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                                <span>{step}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
 
                       {/* Prevention */}
-                      <div className="space-y-3 pt-4 border-t border-border">
-                        <h4 className="font-semibold text-foreground flex items-center gap-2">
-                          <Leaf className="w-5 h-5 text-success" />
-                          Prevention Tips
-                        </h4>
-                        <ul className="space-y-2">
-                          {result.prevention.map((tip, index) => (
-                            <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
-                              <ArrowRight className="w-4 h-4 text-success mt-0.5 flex-shrink-0" />
-                              <span>{tip}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                      {result.prevention?.length > 0 && (
+                        <div className="space-y-3 pt-4 border-t border-border">
+                          <h4 className="font-semibold text-foreground flex items-center gap-2">
+                            <Leaf className="w-5 h-5 text-green-500" />
+                            Prevention Tips
+                          </h4>
+                          <ul className="space-y-2">
+                            {result.prevention.map((tip, i) => (
+                              <li
+                                key={i}
+                                className="flex items-start gap-2 text-sm text-muted-foreground"
+                              >
+                                <ArrowRight className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                <span>{tip}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 </div>
@@ -228,45 +411,127 @@ export default function DiseaseDetection() {
             </CardContent>
           </Card>
 
-          {/* Recent Scans Sidebar */}
-          <div className="space-y-6">
+          {/* Sidebar */}
+          <div className="space-y-4 lg:sticky lg:top-6 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto lg:pr-1">
+
+            {/* Recent Scans */}
             <Card>
-              <CardHeader>
-                <CardTitle>Recent Scans</CardTitle>
-                <CardDescription>Your latest disease detection history</CardDescription>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Recent Scans</CardTitle>
+                <CardDescription className="text-xs">
+                  Your latest detection history
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {recentScans.map((scan, index) => (
+              <CardContent className="space-y-2">
+                {scansLoading ? (
+                  [1, 2, 3].map((i) => (
                     <div
-                      key={index}
-                      className="p-4 rounded-lg bg-muted/50 hover:bg-muted transition-smooth space-y-2"
-                    >
-                      <div className="flex items-center justify-between">
-                        <p className="font-semibold text-foreground">{scan.crop}</p>
-                        <Badge variant={scan.status === "success" ? "secondary" : "destructive"}>
-                          {scan.disease}
-                        </Badge>
+                      key={i}
+                      className="h-14 rounded-lg bg-muted/50 animate-pulse"
+                    />
+                  ))
+                ) : recentScans.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-3">
+                    No scans yet. Analyze your first crop!
+                  </p>
+                ) : (
+                  <>
+                    {visibleScans.map((scan, index) => (
+                      <div
+                        key={scan.id ?? index}
+                        className="px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-smooth"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-sm text-foreground truncate">
+                            {scan.crop}
+                          </p>
+                          <Badge
+                            variant={
+                              scan.status === "healthy"
+                                ? "secondary"
+                                : "destructive"
+                            }
+                            className="shrink-0 text-xs"
+                          >
+                            {scan.disease}
+                          </Badge>
+                        </div>
+                        <div className="flex justify-between text-xs text-muted-foreground mt-0.5">
+                          <span>{scan.date}</span>
+                          {scan.confidence && (
+                            <span>{scan.confidence}% confidence</span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">{scan.date}</p>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+
+                    {recentScans.length > 3 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-xs h-7 mt-1"
+                        onClick={() => setShowAllScans((v) => !v)}
+                      >
+                        {showAllScans ? (
+                          <>
+                            <ChevronUp className="w-3 h-3 mr-1" />
+                            Show less
+                          </>
+                        ) : (
+                          <>
+                            <ChevronDown className="w-3 h-3 mr-1" />
+                            Show {recentScans.length - 3} more
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </>
+                )}
               </CardContent>
             </Card>
 
-            <Card className="bg-gradient-hero border-primary/20">
-              <CardContent className="p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-                  <Leaf className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-display font-semibold text-foreground">
-                  Pro Tip
-                </h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  For best results, take photos in natural daylight with the affected area clearly visible.
-                </p>
-              </CardContent>
+            {/* Supported Crops — collapsible accordion */}
+            <Card className="border-primary/20">
+              <button
+                className="w-full text-left"
+                onClick={() => setCropsExpanded((v) => !v)}
+              >
+                <CardHeader className="py-3 px-4">
+                  <CardTitle className="flex items-center justify-between text-sm font-semibold">
+                    <span className="flex items-center gap-2">
+                      <Info className="w-4 h-4 text-primary" />
+                      Supported Crops
+                    </span>
+                    {cropsExpanded ? (
+                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </CardTitle>
+                </CardHeader>
+              </button>
+
+              {cropsExpanded && (
+                <CardContent className="pt-0 pb-4 space-y-3">
+                  <div className="flex flex-wrap gap-1.5">
+                    {SUPPORTED_CROPS.map((crop) => (
+                      <span
+                        key={crop}
+                        className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium"
+                      >
+                        {crop}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-start gap-2 pt-3 border-t border-border">
+                    <Leaf className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      For best results, photograph in natural daylight with the
+                      affected leaf clearly filling the frame.
+                    </p>
+                  </div>
+                </CardContent>
+              )}
             </Card>
           </div>
         </div>
