@@ -7,6 +7,7 @@ import {
   Eye,
   Trash2,
   Image as ImageIcon,
+  CheckCircle,
 } from "lucide-react";
 import {
   Card,
@@ -24,10 +25,30 @@ import {
   getDashboardStats,
 } from "@/api/admin";
 
+// Normalize severity strings from backend (e.g. "Severe" → "high", "Moderate" → "medium")
+const normalizeSeverity = (s) => {
+  const map = {
+    severe: "high",
+    high: "high",
+    moderate: "medium",
+    medium: "medium",
+    mild: "low",
+    low: "low",
+    none: "low",
+  };
+  return map[String(s || "").toLowerCase()] || "low";
+};
+
 const severityStyles = {
   low: "bg-success/10 text-success hover:bg-success/10",
   medium: "bg-warning/10 text-warning hover:bg-warning/10",
   high: "bg-destructive/10 text-destructive hover:bg-destructive/10",
+};
+
+const severityLabel = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
 };
 
 const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
@@ -95,11 +116,12 @@ export default function ScanResultManager() {
     loadScans(page);
   }, [page]);
 
+  // Uses normalizeSeverity so "Severe"/"Moderate"/"Mild" all count correctly
   const pageStats = useMemo(() => {
     return {
-      high: scans.filter((s) => String(s?.severity || "").toLowerCase() === "high").length,
-      medium: scans.filter((s) => String(s?.severity || "").toLowerCase() === "medium").length,
-      low: scans.filter((s) => String(s?.severity || "").toLowerCase() === "low").length,
+      high: scans.filter((s) => normalizeSeverity(s?.severity) === "high").length,
+      medium: scans.filter((s) => normalizeSeverity(s?.severity) === "medium").length,
+      low: scans.filter((s) => normalizeSeverity(s?.severity) === "low").length,
     };
   }, [scans]);
 
@@ -213,7 +235,7 @@ export default function ScanResultManager() {
             ) : (
               <div className="space-y-3">
                 {scans.map((scan) => {
-                  const level = String(scan?.severity || "").toLowerCase();
+                  const level = normalizeSeverity(scan?.severity);
                   return (
                     <div
                       key={scan.id || scan.pk}
@@ -227,6 +249,11 @@ export default function ScanResultManager() {
                           <p className="text-sm text-muted-foreground">
                             Disease: {scan?.disease || "Not available"}
                           </p>
+                          {scan?.confidence != null && (
+                            <p className="text-xs text-muted-foreground">
+                              Confidence: {Number(scan.confidence).toFixed(1)}%
+                            </p>
+                          )}
                           <p className="text-xs text-muted-foreground">
                             {scan?.created_at
                               ? new Date(scan.created_at).toLocaleString()
@@ -234,12 +261,21 @@ export default function ScanResultManager() {
                           </p>
                         </div>
 
-                        <Badge
-                          variant="secondary"
-                          className={severityStyles[level] || "bg-muted text-foreground"}
-                        >
-                          {scan?.severity || "Unknown"}
-                        </Badge>
+                        <div className="flex flex-col items-end gap-1">
+                          {scan?.is_healthy ? (
+                            <Badge className="bg-success/10 text-success hover:bg-success/10">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Healthy
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="secondary"
+                              className={severityStyles[level] || "bg-muted text-foreground"}
+                            >
+                              {severityLabel[level] || scan?.severity || "Unknown"}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
 
                       <div className="flex flex-wrap gap-2">
@@ -288,7 +324,7 @@ export default function ScanResultManager() {
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Scan Detail</CardTitle>
-            <CardDescription>Inspect image, crop, severity, and recommendation</CardDescription>
+            <CardDescription>Inspect image, crop, severity, treatment and prevention</CardDescription>
           </CardHeader>
           <CardContent>
             {detailLoading ? (
@@ -328,13 +364,25 @@ export default function ScanResultManager() {
                     </p>
                   </div>
                   <div className="rounded-xl border border-border p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Severity</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Status</p>
                     <p className="mt-1 text-sm font-medium text-foreground">
-                      {selectedScan?.severity || "-"}
+                      {selectedScan?.is_healthy
+                        ? "✅ Healthy"
+                        : severityLabel[normalizeSeverity(selectedScan?.severity)] ||
+                          selectedScan?.severity ||
+                          "-"}
                     </p>
                   </div>
                   <div className="rounded-xl border border-border p-4">
-                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Created</p>
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Confidence</p>
+                    <p className="mt-1 text-sm font-medium text-foreground">
+                      {selectedScan?.confidence != null
+                        ? `${Number(selectedScan.confidence).toFixed(1)}%`
+                        : "-"}
+                    </p>
+                  </div>
+                  <div className="rounded-xl border border-border p-4 sm:col-span-2">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">Scanned On</p>
                     <p className="mt-1 text-sm font-medium text-foreground">
                       {selectedScan?.created_at
                         ? new Date(selectedScan.created_at).toLocaleString()
@@ -345,10 +393,28 @@ export default function ScanResultManager() {
 
                 <div className="rounded-xl border border-border p-4">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Recommendation
+                    Description
                   </p>
                   <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">
-                    {selectedScan?.recommendation || "No recommendation available."}
+                    {selectedScan?.description || "No description available."}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Treatment
+                  </p>
+                  <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">
+                    {selectedScan?.treatment || "No treatment info available."}
+                  </p>
+                </div>
+
+                <div className="rounded-xl border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                    Prevention
+                  </p>
+                  <p className="mt-2 text-sm text-foreground whitespace-pre-wrap">
+                    {selectedScan?.prevention || "No prevention info available."}
                   </p>
                 </div>
               </div>
