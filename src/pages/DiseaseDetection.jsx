@@ -12,6 +12,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Scan,
   Upload,
   Camera,
@@ -57,6 +63,16 @@ function SupportedCropsList({ crops }) {
   );
 }
 
+// Normalize treatment/prevention — backend may store as string or array
+function toList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return value
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 export default function DiseaseDetection() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imageFile, setImageFile] = useState(null);
@@ -70,6 +86,10 @@ export default function DiseaseDetection() {
   const [scansLoading, setScansLoading] = useState(true);
   const [showAllScans, setShowAllScans] = useState(false);
   const [cropsExpanded, setCropsExpanded] = useState(false);
+
+  // Scan detail modal
+  const [selectedScan, setSelectedScan] = useState(null);
+  const [scanDetailOpen, setScanDetailOpen] = useState(false);
 
   useEffect(() => {
     async function loadScans() {
@@ -157,6 +177,11 @@ export default function DiseaseDetection() {
     }
   };
 
+  const handleScanClick = (scan) => {
+    setSelectedScan(scan);
+    setScanDetailOpen(true);
+  };
+
   const visibleScans = showAllScans ? recentScans : recentScans.slice(0, 3);
 
   return (
@@ -173,10 +198,10 @@ export default function DiseaseDetection() {
           </p>
         </div>
 
-        {/* Grid: items-start prevents sidebar from stretching main card */}
+        {/* Grid */}
         <div className="grid lg:grid-cols-3 gap-6 items-start">
 
-          {/*  Main Card  */}
+          {/* Main Card */}
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -267,8 +292,7 @@ export default function DiseaseDetection() {
                 </Button>
               </div>
 
-              {/* Error States  */}
-
+              {/* Error States */}
               {errorState?.type === "not_a_plant" && (
                 <Alert variant="destructive" className="animate-fade-in">
                   <XCircle className="w-5 h-5" />
@@ -318,8 +342,7 @@ export default function DiseaseDetection() {
                     }
                   >
                     <CheckCircle2
-                      className={`w-5 h-5 ${result.isHealthy ? "text-green-500" : "text-primary"
-                        }`}
+                      className={`w-5 h-5 ${result.isHealthy ? "text-green-500" : "text-primary"}`}
                     />
                     <AlertDescription className="ml-2">
                       {result.isHealthy
@@ -364,14 +387,14 @@ export default function DiseaseDetection() {
                       </div>
 
                       {/* Treatment */}
-                      {!result.isHealthy && result.treatment?.length > 0 && (
+                      {!result.isHealthy && toList(result.treatment).length > 0 && (
                         <div className="space-y-3">
                           <h4 className="font-semibold text-foreground flex items-center gap-2">
                             <AlertCircle className="w-5 h-5 text-primary" />
                             Recommended Treatment
                           </h4>
                           <ul className="space-y-2">
-                            {result.treatment.map((step, i) => (
+                            {toList(result.treatment).map((step, i) => (
                               <li
                                 key={i}
                                 className="flex items-start gap-2 text-sm text-muted-foreground"
@@ -385,14 +408,14 @@ export default function DiseaseDetection() {
                       )}
 
                       {/* Prevention */}
-                      {result.prevention?.length > 0 && (
+                      {toList(result.prevention).length > 0 && (
                         <div className="space-y-3 pt-4 border-t border-border">
                           <h4 className="font-semibold text-foreground flex items-center gap-2">
                             <Leaf className="w-5 h-5 text-green-500" />
                             Prevention Tips
                           </h4>
                           <ul className="space-y-2">
-                            {result.prevention.map((tip, i) => (
+                            {toList(result.prevention).map((tip, i) => (
                               <li
                                 key={i}
                                 className="flex items-start gap-2 text-sm text-muted-foreground"
@@ -419,7 +442,7 @@ export default function DiseaseDetection() {
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Recent Scans</CardTitle>
                 <CardDescription className="text-xs">
-                  Your latest detection history
+                  Click any scan to view full details
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -439,7 +462,8 @@ export default function DiseaseDetection() {
                     {visibleScans.map((scan, index) => (
                       <div
                         key={scan.id ?? index}
-                        className="px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-smooth"
+                        className="px-3 py-2 rounded-lg bg-muted/50 hover:bg-muted transition-smooth cursor-pointer border border-transparent hover:border-primary/20"
+                        onClick={() => handleScanClick(scan)}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <p className="font-medium text-sm text-foreground truncate">
@@ -490,7 +514,7 @@ export default function DiseaseDetection() {
               </CardContent>
             </Card>
 
-            {/* Supported Crops — collapsible accordion */}
+            {/* Supported Crops */}
             <Card className="border-primary/20">
               <button
                 className="w-full text-left"
@@ -536,6 +560,137 @@ export default function DiseaseDetection() {
           </div>
         </div>
       </div>
+
+      {/* ── Scan Detail Modal ── */}
+      <Dialog open={scanDetailOpen} onOpenChange={setScanDetailOpen}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Scan className="w-5 h-5 text-primary" />
+              Scan Detail
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedScan && (
+            <div className="space-y-5 py-2">
+
+              {/* Scanned image */}
+              {selectedScan.image && (
+                <img
+                  src={selectedScan.image}
+                  alt="Scanned leaf"
+                  className="w-full max-h-52 object-contain rounded-lg border border-border"
+                />
+              )}
+
+              {/* Info grid */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Crop Type
+                  </p>
+                  <p className="font-semibold text-foreground">{selectedScan.crop}</p>
+                </div>
+                <div className="space-y-1 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Disease
+                  </p>
+                  <p className="font-semibold text-foreground">{selectedScan.disease}</p>
+                </div>
+                <div className="space-y-1 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Status
+                  </p>
+                  <Badge
+                    variant={
+                      selectedScan.severity === "high"
+                        ? "destructive"
+                        : selectedScan.severity === "medium"
+                          ? "outline"
+                          : "secondary"
+                    }
+                  >
+                    {selectedScan.severity}
+                  </Badge>
+                </div>
+                <div className="space-y-1 p-3 rounded-lg bg-muted/50">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">
+                    Confidence
+                  </p>
+                  <p className="font-semibold text-foreground">
+                    {selectedScan.confidence}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Scanned on */}
+              <p className="text-xs text-muted-foreground">
+                Scanned on: {selectedScan.date}
+              </p>
+
+              {/* Description */}
+              <div className="space-y-1">
+                <h4 className="font-semibold text-sm text-foreground">Description</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {selectedScan.description || "No description available."}
+                </p>
+              </div>
+
+              {/* Treatment */}
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-primary" />
+                  Recommended Treatment
+                </h4>
+                {toList(selectedScan.treatment).length > 0 ? (
+                  <ul className="space-y-1">
+                    {toList(selectedScan.treatment).map((step, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-sm text-muted-foreground"
+                      >
+                        <CheckCircle2 className="w-4 h-4 text-primary mt-0.5 shrink-0" />
+                        <span>{step}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No treatment info available.
+                  </p>
+                )}
+              </div>
+
+              {/* Prevention */}
+              <div className="space-y-2 pt-3 border-t border-border">
+                <h4 className="font-semibold text-sm text-foreground flex items-center gap-2">
+                  <Leaf className="w-4 h-4 text-green-500" />
+                  Prevention Tips
+                </h4>
+                {toList(selectedScan.prevention).length > 0 ? (
+                  <ul className="space-y-1">
+                    {toList(selectedScan.prevention).map((tip, i) => (
+                      <li
+                        key={i}
+                        className="flex items-start gap-2 text-sm text-muted-foreground"
+                      >
+                        <ArrowRight className="w-4 h-4 text-green-500 mt-0.5 shrink-0" />
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No prevention info available.
+                  </p>
+                )}
+              </div>
+
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
     </DashboardLayout>
   );
 }
