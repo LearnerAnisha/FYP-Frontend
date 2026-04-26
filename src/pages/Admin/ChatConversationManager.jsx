@@ -120,7 +120,7 @@ export default function ChatConversationManager() {
   };
 
   const pageStats = useMemo(() => {
-    const withUsers = conversations.filter((c) => c?.user).length;
+    const withUsers = conversations.filter((c) => c?.user_name).length;
     return { withUsers };
   }, [conversations]);
 
@@ -197,13 +197,13 @@ export default function ChatConversationManager() {
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                       <div className="space-y-1">
                         <p className="font-medium text-foreground">
-                          {conversation?.user?.full_name || "Anonymous User"}
+                          {conversation?.user_name || "Anonymous User"}
                         </p>
                         <p className="text-sm text-muted-foreground">
-                          {conversation?.user?.email || "No email"}
+                          {conversation?.user_email || "No email"}
                         </p>
                         <p className="text-xs text-muted-foreground break-all">
-                          Session: {conversation?.session_id || "N/A"}
+                          Session: {conversation?.session_id?.slice(-8) || "N/A"}
                         </p>
                       </div>
 
@@ -279,13 +279,13 @@ export default function ChatConversationManager() {
               <div className="space-y-4">
                 <div className="rounded-xl border border-border p-4">
                   <p className="font-medium text-foreground">
-                    {selectedConversation?.user?.full_name || "Anonymous User"}
+                    {selectedConversation?.user_name || "Anonymous User"}
                   </p>
                   <p className="text-sm text-muted-foreground">
-                    {selectedConversation?.user?.email || "No email"}
+                    {selectedConversation?.user_email || "No email"}
                   </p>
                   <p className="text-xs text-muted-foreground mt-1 break-all">
-                    Session: {selectedConversation?.session_id || "N/A"}
+                    Session: {selectedConversation?.session_id?.slice(-8) || "N/A"}
                   </p>
                 </div>
 
