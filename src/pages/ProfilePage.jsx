@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { fetchProfile, updateProfile, changePassword, deleteAccount } from "@/api/profile";
+import { fetchProfile, updateProfile, changePassword, deleteAccount, exportData } from "@/api/profile";
 import { handleUpgradeWithEsewa } from "@/api/payment";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -67,10 +67,10 @@ const plans = [
 ];
 
 const comparisonRows = [
-  { label: "Disease Detection",    values: ["5 / month",   "Unlimited"]          },
-  { label: "Weather & Irrigation", values: ["Basic tips",  "Advanced analytics"] },
-  { label: "Price Predictions",    values: ["—",           "✓"]                  },
-  { label: "AI Chatbot",           values: ["10 msgs/day", "Unlimited"]          },
+  { label: "Disease Detection", values: ["5 / month", "Unlimited"] },
+  { label: "Weather & Irrigation", values: ["Basic tips", "Advanced analytics"] },
+  { label: "Price Predictions", values: ["—", "✓"] },
+  { label: "AI Chatbot", values: ["10 msgs/day", "Unlimited"] },
 ];
 
 const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
@@ -177,16 +177,16 @@ export default function ProfilePage() {
     }, 1000);
   };
 
-  const handleExportData = () =>
-    toast.success("Preparing your data export… You'll receive an email shortly.");
-
-  const handleDeleteAccount = async () => {
+  const handleExportData = async () => {
+    if (currentPlan.id !== "pro") {
+      toast.error("Data export is a PRO feature. Please upgrade your plan.");
+      return;
+    }
     try {
-      await deleteAccount();
-      localStorage.clear();
-      window.location.href = "/auth";
+      await exportData();
+      toast.success("Your data export has started downloading.");
     } catch {
-      toast.error("Failed to delete account");
+      toast.error("Failed to export data. Please try again.");
     }
   };
 
@@ -232,6 +232,16 @@ export default function ProfilePage() {
       toast.success("Subscription cancelled. Access retained until billing period ends.");
     } catch {
       toast.error("Failed to cancel subscription. Please contact support.");
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      await deleteAccount();
+      toast.success("Account deleted successfully. You will be logged out.");
+      // Optionally, redirect to login page or handle logout here if needed
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to delete account. Please try again.");
     }
   };
 
@@ -296,8 +306,13 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <Button variant="outline" onClick={handleExportData}>
-                <Download className="w-4 h-4 mr-2" />Export Data
+              <Button
+                variant="outline"
+                onClick={handleExportData}
+                disabled={currentPlan.id !== "pro"}
+              >
+                <Download className="w-4 h-4 mr-2" />
+                {currentPlan.id === "pro" ? "Request Data Export" : "PRO Only — Upgrade to Export"}
               </Button>
             </div>
           </CardContent>
@@ -502,7 +517,14 @@ export default function ProfilePage() {
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Download Your Data</h4>
                         <p className="text-sm text-muted-foreground mb-3">Download a copy of all your data including scans, reports, and preferences.</p>
-                        <Button variant="outline" onClick={handleExportData}><Download className="w-4 h-4 mr-2" />Request Data Export</Button>
+                        <Button
+                          variant="outline"
+                          onClick={handleExportData}
+                          disabled={currentPlan.id !== "pro"}
+                        >
+                          <Download className="w-4 h-4 mr-2" />
+                          {currentPlan.id === "pro" ? "Request Data Export" : "PRO Only — Upgrade to Export"}
+                        </Button>
                       </div>
                     </div>
                   </div>
@@ -523,23 +545,39 @@ export default function ProfilePage() {
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Delete Account</h4>
                         <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive"><Trash2 className="w-4 h-4 mr-2" />Delete Account</Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">Yes, Delete Account</AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                        {/* Replace the existing AlertDialogTrigger block */}
+                        {currentPlan.id === "pro" ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive"><Trash2 className="w-4 h-4 mr-2" />Delete Account</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. This will permanently delete your account
+                                  and remove all your data from our servers.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">
+                                  Yes, Delete Account
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <div className="space-y-2">
+                            <Button variant="destructive" disabled>
+                              <Trash2 className="w-4 h-4 mr-2" />Delete Account
+                            </Button>
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Zap className="w-3 h-3 text-primary" />
+                              Account deletion is available on the <span className="text-primary font-medium">PRO plan</span> only.
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -555,9 +593,8 @@ export default function ProfilePage() {
             <Card className={`border-2 ${currentPlan.id !== "free" ? "border-primary/40 bg-primary/5" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                    currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
-                  }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
+                    }`}>
                     <ActiveIcon className="w-7 h-7" />
                   </div>
                   <div className="flex-1">
@@ -610,17 +647,15 @@ export default function ProfilePage() {
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
                 <button
                   onClick={() => setIsYearly(false)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                    !isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Monthly
                 </button>
                 <button
                   onClick={() => setIsYearly(true)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
-                    isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                  }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                    }`}
                 >
                   Yearly
                   <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">20% off</span>
@@ -638,13 +673,12 @@ export default function ProfilePage() {
                 return (
                   <Card
                     key={plan.id}
-                    className={`relative flex flex-col transition-smooth ${
-                      isActive
+                    className={`relative flex flex-col transition-smooth ${isActive
                         ? "border-primary shadow-lg ring-2 ring-primary/30"
                         : plan.highlight
                           ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
                           : "border-border hover:border-primary/30 hover:shadow-elegant"
-                    }`}
+                      }`}
                   >
                     {isActive && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
@@ -660,9 +694,8 @@ export default function ProfilePage() {
                     )}
                     <CardHeader className="pt-8 pb-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                          isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
-                        }`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
+                          }`}>
                           <Icon className={`w-5 h-5 ${isActive || plan.highlight ? "text-primary-foreground" : "text-primary"}`} />
                         </div>
                         <CardTitle className="text-lg font-display">{plan.name}</CardTitle>
@@ -689,13 +722,12 @@ export default function ProfilePage() {
                         ))}
                       </ul>
                       <Button
-                        className={`w-full gap-2 ${
-                          isActive
+                        className={`w-full gap-2 ${isActive
                             ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
                             : plan.highlight
                               ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
                               : ""
-                        }`}
+                          }`}
                         variant={isActive ? "ghost" : plan.highlight ? "default" : "outline"}
                         disabled={isActive || isLoadingThis}
                         onClick={() => !isActive && handleUpgrade(plan.id)}
@@ -729,9 +761,8 @@ export default function ProfilePage() {
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-6 font-semibold text-foreground w-1/2">Feature</th>
                       {plans.map((p) => (
-                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${
-                          p.id === currentPlan.id ? "text-primary" : "text-foreground"
-                        }`}>
+                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"
+                          }`}>
                           {p.name}
                         </th>
                       ))}
@@ -742,9 +773,8 @@ export default function ProfilePage() {
                       <tr key={row.label} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-6 text-muted-foreground">{row.label}</td>
                         {row.values.map((val, i) => (
-                          <td key={i} className={`text-center py-3 px-4 ${
-                            plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"
-                          }`}>
+                          <td key={i} className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"
+                            }`}>
                             {val === "✓" ? (
                               <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />
                             ) : val === "—" ? (
