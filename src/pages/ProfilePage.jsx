@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { fetchProfile, updateProfile, changePassword, deleteAccount } from "@/api/profile";
-import { handleUpgradeWithEsewa, getPaymentHistory } from "@/api/payment";   // ← NEW
+import { handleUpgradeWithEsewa } from "@/api/payment";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import {
-  User, Camera, Mail, Phone, MapPin, Calendar,
+  Camera, MapPin, Calendar,
   Save, Bell, Lock, Shield, Trash2, Download, Upload,
-  CheckCircle2, AlertCircle, Zap, Sprout, Crown,
+  CheckCircle2, AlertCircle, Zap, Sprout,
   ArrowRight, Star, CreditCard,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,10 +26,8 @@ import {
   AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-/* Subscription plan data  */
 const PLAN_PRICES = {
-  pro: { monthly: 100, yearly: 50 },
-  enterprise: { monthly: 1499, yearly: 1199 },
+  pro: { monthly: 100, yearly: 80 },
 };
 
 const plans = [
@@ -42,9 +40,9 @@ const plans = [
     highlight: false,
     features: [
       "5 disease scans / month",
-      "Basic weather tips",
+      "Basic weather & irrigation tips",
       "Live market prices",
-      "AI chatbot (10 msgs/day)",
+      "AI chatbot (10 messages/day)",
       "Email support",
     ],
   },
@@ -52,13 +50,13 @@ const plans = [
     id: "pro",
     name: "Pro",
     icon: Zap,
-    price: { monthly: 100, yearly: 50 },
+    price: { monthly: 100, yearly: 80 },
     description: "For active farmers who need real-time insights.",
     highlight: true,
     badge: "Most Popular",
     features: [
       "Unlimited disease scans",
-      "Advanced weather analytics",
+      "Advanced weather & irrigation analytics",
       "AI price predictions",
       "Unlimited AI chatbot",
       "SMS & email alerts",
@@ -66,41 +64,20 @@ const plans = [
       "Priority support",
     ],
   },
-  {
-    id: "enterprise",
-    name: "Enterprise",
-    icon: Crown,
-    price: { monthly: 1499, yearly: 1199 },
-    description: "For cooperatives and agribusinesses.",
-    highlight: false,
-    features: [
-      "Everything in Pro",
-      "Multi-farm management",
-      "Custom AI model training",
-      "API access",
-      "Dedicated account manager",
-    ],
-  },
 ];
 
 const comparisonRows = [
-  { label: "Disease scans", values: ["5 / month", "Unlimited", "Unlimited"] },
-  { label: "AI chatbot", values: ["10 msgs/day", "Unlimited", "Unlimited"] },
-  { label: "Price predictions", values: ["—", "✓", "✓"] },
-  { label: "SMS alerts", values: ["—", "✓", "✓"] },
-  { label: "Chat history", values: ["—", "✓", "✓"] },
-  { label: "API access", values: ["—", "—", "✓"] },
-  { label: "Multi-farm", values: ["—", "—", "✓"] },
-  { label: "Support", values: ["Email", "Priority", "Dedicated"] },
+  { label: "Disease Detection",    values: ["5 / month",   "Unlimited"]          },
+  { label: "Weather & Irrigation", values: ["Basic tips",  "Advanced analytics"] },
+  { label: "Price Predictions",    values: ["—",           "✓"]                  },
+  { label: "AI Chatbot",           values: ["10 msgs/day", "Unlimited"]          },
 ];
 
 const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
 
-/* COMPONENT */
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
 
-  /* Profile state */
   const [profileData, setProfileData] = useState({
     fullName: "", email: "", phone: "", avatar: null,
     location: "", farmSize: "", cropTypes: "", experience: "",
@@ -113,13 +90,10 @@ export default function ProfilePage() {
   });
 
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
-
-  /* Subscription state */
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
   const [loadingPlan, setLoadingPlan] = useState(null);
 
-  /* Load profile  */
   useEffect(() => {
     async function loadProfile() {
       try {
@@ -138,14 +112,11 @@ export default function ProfilePage() {
           language: data.farmer_profile?.language || "nepali",
           bio: data.farmer_profile?.bio || "",
         }));
-
-        // e.g. if (data.subscription) setCurrentPlan(data.subscription);
         if (data.subscription && data.subscription.is_active) {
           setCurrentPlan({
-            id: data.subscription.plan.toLowerCase(), // "PRO" → "pro"
+            id: data.subscription.plan.toLowerCase(),
             renewDate: data.subscription.expires_at
-              ? new Date(data.subscription.expires_at)
-                .toLocaleDateString()
+              ? new Date(data.subscription.expires_at).toLocaleDateString()
               : null,
           });
         }
@@ -157,7 +128,6 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  /* Profile update */
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -181,7 +151,6 @@ export default function ProfilePage() {
     }
   };
 
-  /*  Password change  */
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
@@ -200,7 +169,6 @@ export default function ProfilePage() {
     }
   };
 
-  /* Notifications */
   const handleNotificationUpdate = () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -209,11 +177,9 @@ export default function ProfilePage() {
     }, 1000);
   };
 
-  /* Export data */
   const handleExportData = () =>
     toast.success("Preparing your data export… You'll receive an email shortly.");
 
-  /* Delete account  */
   const handleDeleteAccount = async () => {
     try {
       await deleteAccount();
@@ -224,7 +190,6 @@ export default function ProfilePage() {
     }
   };
 
-  /* Avatar upload  */
   const handleImageUpload = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -239,34 +204,16 @@ export default function ProfilePage() {
     }
   };
 
-  /* UPGRADE — calls eSewa  */
   const handleUpgrade = async (planId) => {
-    // Enterprise → contact sales
-    if (planId === "enterprise") {
-      window.location.href = "mailto:info@krishisaathi.com?subject=Enterprise Plan Inquiry";
-      return;
-    }
-
-    // Already on this plan
     if (planId === currentPlan.id) return;
-
     setLoadingPlan(planId);
-
     try {
-      const price = isYearly
-        ? PLAN_PRICES[planId]?.yearly
-        : PLAN_PRICES[planId]?.monthly;
-
-      // This navigates the browser to eSewa — no code runs after this line
+      const price = isYearly ? PLAN_PRICES[planId]?.yearly : PLAN_PRICES[planId]?.monthly;
       await handleUpgradeWithEsewa({ amount: price });
-
     } catch (err) {
       setLoadingPlan(null);
-
-      // Map DRF error codes to user-friendly messages
       const code = err.response?.data?.error?.code;
       const message = err.response?.data?.error?.message;
-
       const errorMessages = {
         VALIDATION_ERROR: "Invalid payment data. Please try again.",
         AMOUNT_TOO_HIGH: "Payment amount exceeds the allowed limit.",
@@ -274,17 +221,13 @@ export default function ProfilePage() {
         INTERNAL_ERROR: "Server error. Please try again later.",
         ESEWA_API_TIMEOUT: "eSewa servers are slow. Please try again.",
       };
-
       toast.error(errorMessages[code] || message || "Failed to initiate payment. Please try again.");
     }
   };
 
-  /* Cancel plan  */
   const handleCancelPlan = async () => {
     try {
-      // TODO: call your cancel subscription API endpoint
-      // await apiClient.post("/api/subscriptions/cancel/");
-      await new Promise((r) => setTimeout(r, 800)); // remove this line when real API exists
+      await new Promise((r) => setTimeout(r, 800));
       setCurrentPlan({ id: "free", renewDate: null, billingCycle: null });
       toast.success("Subscription cancelled. Access retained until billing period ends.");
     } catch {
@@ -292,7 +235,6 @@ export default function ProfilePage() {
     }
   };
 
-  /* Derived */
   const activePlan = plans.find((p) => p.id === currentPlan.id);
   const ActiveIcon = activePlan?.icon || Sprout;
 
@@ -307,16 +249,12 @@ export default function ProfilePage() {
     { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" },
   ];
 
-  /*  RENDER */
   return (
     <DashboardLayout>
       <div className="space-y-6">
 
-        {/* ── Page header ── */}
         <div>
-          <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-2">
-            Profile Settings
-          </h1>
+          <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground mb-2">Profile Settings</h1>
           <p className="text-muted-foreground">Manage your account settings and preferences.</p>
         </div>
 
@@ -339,22 +277,12 @@ export default function ProfilePage() {
                 >
                   <Camera className="w-4 h-4" />
                 </label>
-                <input
-                  id="avatar-upload"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
+                <input id="avatar-upload" type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
               </div>
 
               <div className="flex-1 text-center sm:text-left">
-                <h2 className="text-2xl font-display font-bold text-foreground mb-2">
-                  {profileData.fullName}
-                </h2>
-                <p className="text-muted-foreground mb-3">
-                  Farmer • Member since {profileData.joinDate}
-                </p>
+                <h2 className="text-2xl font-display font-bold text-foreground mb-2">{profileData.fullName}</h2>
+                <p className="text-muted-foreground mb-3">Farmer • Member since {profileData.joinDate}</p>
                 <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
                   <Badge variant="secondary" className="flex items-center gap-1">
                     <MapPin className="w-3 h-3" />{profileData.location}
@@ -419,77 +347,41 @@ export default function ProfilePage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="fullName">Full Name</Label>
-                      <Input
-                        id="fullName"
-                        value={profileData.fullName}
-                        onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })}
-                      />
+                      <Input id="fullName" value={profileData.fullName} onChange={(e) => setProfileData({ ...profileData, fullName: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="email">Email Address</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={profileData.email}
-                        onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                      />
+                      <Input id="email" type="email" value={profileData.email} onChange={(e) => setProfileData({ ...profileData, email: e.target.value })} />
                     </div>
                   </div>
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="phone">Phone Number</Label>
-                      <Input
-                        id="phone"
-                        value={profileData.phone}
-                        onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
-                      />
+                      <Input id="phone" value={profileData.phone} onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="location">Location</Label>
-                      <Input
-                        id="location"
-                        value={profileData.location}
-                        onChange={(e) => setProfileData({ ...profileData, location: e.target.value })}
-                      />
+                      <Input id="location" value={profileData.location} onChange={(e) => setProfileData({ ...profileData, location: e.target.value })} />
                     </div>
                   </div>
                   <Separator />
                   <div className="grid sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="farmSize">Farm Size (Hectares)</Label>
-                      <Input
-                        id="farmSize"
-                        type="number"
-                        step="0.1"
-                        value={profileData.farmSize}
-                        onChange={(e) => setProfileData({ ...profileData, farmSize: e.target.value })}
-                      />
+                      <Input id="farmSize" type="number" step="0.1" value={profileData.farmSize} onChange={(e) => setProfileData({ ...profileData, farmSize: e.target.value })} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="experience">Farming Experience (Years)</Label>
-                      <Input
-                        id="experience"
-                        type="number"
-                        value={profileData.experience}
-                        onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })}
-                      />
+                      <Input id="experience" type="number" value={profileData.experience} onChange={(e) => setProfileData({ ...profileData, experience: e.target.value })} />
                     </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="cropTypes">Primary Crops</Label>
-                    <Input
-                      id="cropTypes"
-                      placeholder="e.g., Rice, Wheat, Maize"
-                      value={profileData.cropTypes}
-                      onChange={(e) => setProfileData({ ...profileData, cropTypes: e.target.value })}
-                    />
+                    <Input id="cropTypes" placeholder="e.g., Rice, Wheat, Maize" value={profileData.cropTypes} onChange={(e) => setProfileData({ ...profileData, cropTypes: e.target.value })} />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="language">Preferred Language</Label>
-                    <Select
-                      value={profileData.language}
-                      onValueChange={(v) => setProfileData({ ...profileData, language: v })}
-                    >
+                    <Select value={profileData.language} onValueChange={(v) => setProfileData({ ...profileData, language: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="nepali">Nepali (नेपाली)</SelectItem>
@@ -500,24 +392,12 @@ export default function ProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="bio">Bio</Label>
-                    <Textarea
-                      id="bio"
-                      rows={4}
-                      placeholder="Tell us about your farming journey..."
-                      value={profileData.bio}
-                      onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })}
-                    />
+                    <Textarea id="bio" rows={4} placeholder="Tell us about your farming journey..." value={profileData.bio} onChange={(e) => setProfileData({ ...profileData, bio: e.target.value })} />
                   </div>
                   <div className="flex justify-end gap-3">
                     <Button type="button" variant="outline">Cancel</Button>
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="bg-gradient-primary text-primary-foreground"
-                    >
-                      {isLoading
-                        ? <><span className="animate-spin mr-2">○</span>Saving...</>
-                        : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
+                    <Button type="submit" disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
+                      {isLoading ? <><span className="animate-spin mr-2">○</span>Saving...</> : <><Save className="w-4 h-4 mr-2" />Save Changes</>}
                     </Button>
                   </div>
                 </form>
@@ -525,7 +405,7 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/*  Notifications  */}
+          {/* Notifications */}
           <TabsContent value="notifications" className="space-y-6">
             <Card>
               <CardHeader>
@@ -544,28 +424,16 @@ export default function ProfilePage() {
                   ].map((item) => (
                     <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
                       <div className="space-y-0.5">
-                        <Label htmlFor={item.id} className="text-base font-medium cursor-pointer">
-                          {item.label}
-                        </Label>
+                        <Label htmlFor={item.id} className="text-base font-medium cursor-pointer">{item.label}</Label>
                         <p className="text-sm text-muted-foreground">{item.sub}</p>
                       </div>
-                      <Switch
-                        id={item.id}
-                        checked={notifications[item.id]}
-                        onCheckedChange={(c) => setNotifications({ ...notifications, [item.id]: c })}
-                      />
+                      <Switch id={item.id} checked={notifications[item.id]} onCheckedChange={(c) => setNotifications({ ...notifications, [item.id]: c })} />
                     </div>
                   ))}
                 </div>
                 <div className="flex justify-end">
-                  <Button
-                    onClick={handleNotificationUpdate}
-                    disabled={isLoading}
-                    className="bg-gradient-primary text-primary-foreground"
-                  >
-                    {isLoading
-                      ? <><span className="animate-spin mr-2">○</span>Saving...</>
-                      : <><Bell className="w-4 h-4 mr-2" />Save Preferences</>}
+                  <Button onClick={handleNotificationUpdate} disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
+                    {isLoading ? <><span className="animate-spin mr-2">○</span>Saving...</> : <><Bell className="w-4 h-4 mr-2" />Save Preferences</>}
                   </Button>
                 </div>
               </CardContent>
@@ -583,44 +451,20 @@ export default function ProfilePage() {
                 <form onSubmit={handlePasswordChange} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="current-password">Current Password</Label>
-                    <Input
-                      id="current-password"
-                      type="password"
-                      value={passwords.current}
-                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                      required
-                    />
+                    <Input id="current-password" type="password" value={passwords.current} onChange={(e) => setPasswords({ ...passwords, current: e.target.value })} required />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="new-password">New Password</Label>
-                    <Input
-                      id="new-password"
-                      type="password"
-                      value={passwords.new}
-                      onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
-                      required
-                    />
+                    <Input id="new-password" type="password" value={passwords.new} onChange={(e) => setPasswords({ ...passwords, new: e.target.value })} required />
                     <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="confirm-password">Confirm New Password</Label>
-                    <Input
-                      id="confirm-password"
-                      type="password"
-                      value={passwords.confirm}
-                      onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
-                      required
-                    />
+                    <Input id="confirm-password" type="password" value={passwords.confirm} onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })} required />
                   </div>
                   <div className="flex justify-end">
-                    <Button
-                      type="submit"
-                      disabled={isLoading}
-                      className="bg-gradient-primary text-primary-foreground"
-                    >
-                      {isLoading
-                        ? <><span className="animate-spin mr-2">○</span>Updating...</>
-                        : <><Lock className="w-4 h-4 mr-2" />Update Password</>}
+                    <Button type="submit" disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
+                      {isLoading ? <><span className="animate-spin mr-2">○</span>Updating...</> : <><Lock className="w-4 h-4 mr-2" />Update Password</>}
                     </Button>
                   </div>
                 </form>
@@ -636,17 +480,14 @@ export default function ProfilePage() {
               </CardHeader>
               <CardContent>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Two-factor authentication adds an additional layer of security by requiring
-                  more than just a password to sign in.
+                  Two-factor authentication adds an additional layer of security by requiring more than just a password to sign in.
                 </p>
-                <Button variant="outline">
-                  <Shield className="w-4 h-4 mr-2" />Enable 2FA
-                </Button>
+                <Button variant="outline"><Shield className="w-4 h-4 mr-2" />Enable 2FA</Button>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Privacy  */}
+          {/* Privacy */}
           <TabsContent value="privacy" className="space-y-6">
             <Card>
               <CardHeader>
@@ -660,63 +501,42 @@ export default function ProfilePage() {
                       <Download className="w-5 h-5 text-primary mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Download Your Data</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Download a copy of all your data including scans, reports, and preferences.
-                        </p>
-                        <Button variant="outline" onClick={handleExportData}>
-                          <Download className="w-4 h-4 mr-2" />Request Data Export
-                        </Button>
+                        <p className="text-sm text-muted-foreground mb-3">Download a copy of all your data including scans, reports, and preferences.</p>
+                        <Button variant="outline" onClick={handleExportData}><Download className="w-4 h-4 mr-2" />Request Data Export</Button>
                       </div>
                     </div>
                   </div>
-
                   <div className="p-4 rounded-lg border border-border">
                     <div className="flex items-start gap-3">
                       <Upload className="w-5 h-5 text-primary mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Import Data</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Import your farming data from other platforms or backups.
-                        </p>
-                        <Button variant="outline">
-                          <Upload className="w-4 h-4 mr-2" />Import Data
-                        </Button>
+                        <p className="text-sm text-muted-foreground mb-3">Import your farming data from other platforms or backups.</p>
+                        <Button variant="outline"><Upload className="w-4 h-4 mr-2" />Import Data</Button>
                       </div>
                     </div>
                   </div>
-
                   <Separator />
-
                   <div className="p-4 rounded-lg border border-destructive/20 bg-destructive/5">
                     <div className="flex items-start gap-3">
                       <AlertCircle className="w-5 h-5 text-destructive mt-0.5" />
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Delete Account</h4>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          Permanently delete your account and all associated data. This action cannot be undone.
-                        </p>
+                        <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all associated data. This action cannot be undone.</p>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="destructive">
-                              <Trash2 className="w-4 h-4 mr-2" />Delete Account
-                            </Button>
+                            <Button variant="destructive"><Trash2 className="w-4 h-4 mr-2" />Delete Account</Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
                               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete your
-                                account and remove all your data from our servers.
+                                This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
                               <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={handleDeleteAccount}
-                                className="bg-destructive text-destructive-foreground"
-                              >
-                                Yes, Delete Account
-                              </AlertDialogAction>
+                              <AlertDialogAction onClick={handleDeleteAccount} className="bg-destructive text-destructive-foreground">Yes, Delete Account</AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
                         </AlertDialog>
@@ -728,27 +548,23 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/*  SUBSCRIPTION TAB */}
+          {/* SUBSCRIPTION TAB */}
           <TabsContent value="subscription" className="space-y-6">
 
-            {/* ── Current plan banner ── */}
+            {/* Current plan banner */}
             <Card className={`border-2 ${currentPlan.id !== "free" ? "border-primary/40 bg-primary/5" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
-                    }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                    currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
+                  }`}>
                     <ActiveIcon className="w-7 h-7" />
                   </div>
-
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1">
-                      <h2 className="text-xl font-display font-bold text-foreground">
-                        {activePlan?.name} Plan
-                      </h2>
+                      <h2 className="text-xl font-display font-bold text-foreground">{activePlan?.name} Plan</h2>
                       <Badge
-                        className={currentPlan.id !== "free"
-                          ? "bg-primary/15 text-primary border-primary/30"
-                          : "bg-muted text-muted-foreground"}
+                        className={currentPlan.id !== "free" ? "bg-primary/15 text-primary border-primary/30" : "bg-muted text-muted-foreground"}
                         variant="outline"
                       >
                         {currentPlan.id === "free" ? "Current" : "Active"}
@@ -760,35 +576,22 @@ export default function ProfilePage() {
                         : "No active subscription — using the free tier."}
                     </p>
                   </div>
-
                   <div className="flex items-center gap-3">
                     {currentPlan.id !== "free" && (
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive border-destructive/30 hover:bg-destructive/10"
-                          >
-                            Cancel Plan
-                          </Button>
+                          <Button variant="outline" size="sm" className="text-destructive border-destructive/30 hover:bg-destructive/10">Cancel Plan</Button>
                         </AlertDialogTrigger>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>Cancel subscription?</AlertDialogTitle>
                             <AlertDialogDescription>
-                              You'll keep access until your current billing period ends,
-                              then be downgraded to the Free plan.
+                              You'll keep access until your current billing period ends, then be downgraded to the Free plan.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Keep Plan</AlertDialogCancel>
-                            <AlertDialogAction
-                              onClick={handleCancelPlan}
-                              className="bg-destructive text-destructive-foreground"
-                            >
-                              Yes, Cancel
-                            </AlertDialogAction>
+                            <AlertDialogAction onClick={handleCancelPlan} className="bg-destructive text-destructive-foreground">Yes, Cancel</AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
@@ -801,51 +604,47 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-            {/*  Billing toggle  */}
+            {/* Billing toggle */}
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-display font-semibold text-foreground">Available Plans</h3>
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
                 <button
                   onClick={() => setIsYearly(false)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isYearly
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${
+                    !isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   Monthly
                 </button>
                 <button
                   onClick={() => setIsYearly(true)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isYearly
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${
+                    isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                  }`}
                 >
                   Yearly
-                  <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">
-                    20% off
-                  </span>
+                  <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">20% off</span>
                 </button>
               </div>
             </div>
 
-            {/* Plan cards  */}
-            <div className="grid md:grid-cols-3 gap-6">
+            {/* Plan cards — 2 cols */}
+            <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
               {plans.map((plan) => {
                 const Icon = plan.icon;
                 const price = isYearly ? plan.price.yearly : plan.price.monthly;
                 const isActive = plan.id === currentPlan.id;
                 const isLoadingThis = loadingPlan === plan.id;
-
                 return (
                   <Card
                     key={plan.id}
-                    className={`relative flex flex-col transition-smooth ${isActive
+                    className={`relative flex flex-col transition-smooth ${
+                      isActive
                         ? "border-primary shadow-lg ring-2 ring-primary/30"
                         : plan.highlight
                           ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
                           : "border-border hover:border-primary/30 hover:shadow-elegant"
-                      }`}
+                    }`}
                   >
                     {isActive && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
@@ -856,16 +655,14 @@ export default function ProfilePage() {
                     )}
                     {plan.badge && !isActive && (
                       <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                        <span className="bg-gradient-primary text-primary-foreground text-xs font-semibold px-4 py-1 rounded-full shadow">
-                          {plan.badge}
-                        </span>
+                        <span className="bg-gradient-primary text-primary-foreground text-xs font-semibold px-4 py-1 rounded-full shadow">{plan.badge}</span>
                       </div>
                     )}
-
                     <CardHeader className="pt-8 pb-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
-                          }`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                          isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
+                        }`}>
                           <Icon className={`w-5 h-5 ${isActive || plan.highlight ? "text-primary-foreground" : "text-primary"}`} />
                         </div>
                         <CardTitle className="text-lg font-display">{plan.name}</CardTitle>
@@ -883,7 +680,6 @@ export default function ProfilePage() {
                       </div>
                       <CardDescription className="text-xs">{plan.description}</CardDescription>
                     </CardHeader>
-
                     <CardContent className="flex flex-col flex-1 pb-6">
                       <ul className="space-y-2.5 mb-6 flex-1">
                         {plan.features.map((f, i) => (
@@ -892,15 +688,14 @@ export default function ProfilePage() {
                           </li>
                         ))}
                       </ul>
-
-                      {/* Upgrade button — triggers eSewa */}
                       <Button
-                        className={`w-full gap-2 ${isActive
+                        className={`w-full gap-2 ${
+                          isActive
                             ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
                             : plan.highlight
                               ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
                               : ""
-                          }`}
+                        }`}
                         variant={isActive ? "ghost" : plan.highlight ? "default" : "outline"}
                         disabled={isActive || isLoadingThis}
                         onClick={() => !isActive && handleUpgrade(plan.id)}
@@ -912,8 +707,6 @@ export default function ProfilePage() {
                           </span>
                         ) : isActive ? (
                           <><CheckCircle2 className="w-4 h-4" />Current Plan</>
-                        ) : plan.id === "enterprise" ? (
-                          "Contact Sales"
                         ) : (
                           <>Upgrade<ArrowRight className="w-4 h-4" /></>
                         )}
@@ -924,7 +717,7 @@ export default function ProfilePage() {
               })}
             </div>
 
-            {/* Comparison table */}
+            {/* Comparison table — 4 real features */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Plan Comparison</CardTitle>
@@ -934,13 +727,11 @@ export default function ProfilePage() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
-                      <th className="text-left py-3 px-6 font-semibold text-foreground w-2/5">Feature</th>
+                      <th className="text-left py-3 px-6 font-semibold text-foreground w-1/2">Feature</th>
                       {plans.map((p) => (
-                        <th
-                          key={p.id}
-                          className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"
-                            }`}
-                        >
+                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${
+                          p.id === currentPlan.id ? "text-primary" : "text-foreground"
+                        }`}>
                           {p.name}
                         </th>
                       ))}
@@ -951,13 +742,9 @@ export default function ProfilePage() {
                       <tr key={row.label} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-6 text-muted-foreground">{row.label}</td>
                         {row.values.map((val, i) => (
-                          <td
-                            key={i}
-                            className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id
-                                ? "font-semibold text-primary"
-                                : "text-foreground"
-                              }`}
-                          >
+                          <td key={i} className={`text-center py-3 px-4 ${
+                            plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"
+                          }`}>
                             {val === "✓" ? (
                               <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />
                             ) : val === "—" ? (
@@ -982,14 +769,8 @@ export default function ProfilePage() {
                   <div className="space-y-1">
                     <p className="text-sm font-medium text-foreground">Questions about billing?</p>
                     <p className="text-sm text-muted-foreground">
-                      All plans are billed in NPR via eSewa. Cancel anytime and retain access
-                      until end of billing period. For refunds or payment issues, contact{" "}
-                      <a
-                        href="mailto:info@krishisaathi.com"
-                        className="text-primary underline underline-offset-2"
-                      >
-                        info@krishisaathi.com
-                      </a>.
+                      All plans are billed in NPR via eSewa. Cancel anytime and retain access until end of billing period. For refunds or payment issues, contact{" "}
+                      <a href="mailto:info@krishisaathi.com" className="text-primary underline underline-offset-2">info@krishisaathi.com</a>.
                     </p>
                   </div>
                 </div>

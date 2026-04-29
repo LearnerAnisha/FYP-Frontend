@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Send, Bot, User, Leaf, Lightbulb, Loader2, History } from "lucide-react";
 import { ChatHistory } from "@/pages/ChatHistory";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 export default function ChatbotPage() {
   const [messages, setMessages] = useState([]);
@@ -26,6 +27,8 @@ export default function ChatbotPage() {
     localStorage.setItem('chatbot_session_id', newId);
     return newId;
   });
+
+  const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 10 });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -108,6 +111,14 @@ export default function ChatbotPage() {
 
       setMessages((prev) => [...prev, aiMessage]);
     } catch (error) {
+
+      if (error?.response?.status === 403) {
+        const d = error.response.data;
+        setUpgradeModal({ open: true, used: d?.used ?? 10, limit: d?.limit ?? 10 });
+        setIsTyping(false);
+        return;
+      }
+
       console.error('Chat error:', error);
       setMessages((prev) => [
         ...prev,
@@ -370,6 +381,16 @@ export default function ChatbotPage() {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModal.open}
+        onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
+        featureName="chatbot messages"
+        used={upgradeModal.used}
+        limit={upgradeModal.limit}
+      />
+      
     </DashboardLayout>
   );
 }

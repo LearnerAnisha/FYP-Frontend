@@ -32,6 +32,7 @@ import {
   ChevronUp,
 } from "lucide-react";
 import { toast } from "sonner";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 const SEVERITY_VARIANT = {
   None: "secondary",
@@ -90,6 +91,7 @@ export default function DiseaseDetection() {
   // Scan detail modal
   const [selectedScan, setSelectedScan] = useState(null);
   const [scanDetailOpen, setScanDetailOpen] = useState(false);
+  const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 5 });
 
   useEffect(() => {
     async function loadScans() {
@@ -156,6 +158,11 @@ export default function DiseaseDetection() {
     } catch (error) {
       const res = error?.response;
       const data = res?.data;
+
+      if (res?.status === 403) {
+        setUpgradeModal({ open: true, used: data?.used ?? 5, limit: data?.limit ?? 5 });
+        return;
+      }
 
       if (res?.status === 422 && data?.error === "not_a_plant") {
         setErrorState({ type: "not_a_plant", message: data.message });
@@ -691,6 +698,15 @@ export default function DiseaseDetection() {
         </DialogContent>
       </Dialog>
 
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModal.open}
+        onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
+        featureName="crop disease scans"
+        used={upgradeModal.used}
+        limit={upgradeModal.limit}
+      />
+      
     </DashboardLayout>
   );
 }

@@ -36,6 +36,7 @@ import {
   getForecast,
 } from "@/api/market";
 
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 import { getCropHistory } from "@/api/market";
 
@@ -397,6 +398,8 @@ export default function PricePredictor() {
   const [forecastError, setForecastError] = useState(null);
   const [forecastRetry, setForecastRetry] = useState(0);
 
+  const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 5 });
+
   /* DEBOUNCE product search */
   useEffect(() => {
     if (productSearch.trim().length < 2) {
@@ -576,6 +579,13 @@ export default function PricePredictor() {
       setForecastData(data);
       sessionStorage.setItem(cacheKey, JSON.stringify(data));
     } catch (err) {
+
+      if (err?.response?.status === 403) {
+        const d = err.response.data;
+        setUpgradeModal({ open: true, used: d?.used ?? 5, limit: d?.limit ?? 5 });
+        return;
+      }
+
       const httpStatus = err?.response?.status;
       if (httpStatus === 404) {
         setForecastError("not_trained");
@@ -1233,6 +1243,16 @@ export default function PricePredictor() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModal.open}
+        onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
+        featureName="price forecasts"
+        used={upgradeModal.used}
+        limit={upgradeModal.limit}
+      />
+      
     </DashboardLayout>
   );
 }

@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   Sprout
 } from "lucide-react";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 export default function WeatherIrrigation() {
   const [cropType, setCropType] = useState("rice");
@@ -26,7 +27,8 @@ export default function WeatherIrrigation() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [weatherError, setWeatherError] = useState(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-  const [recommendationError, setRecommendationError] = useState(null);
+  const [setRecommendationError] = useState(null);
+  const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 10 });
 
   useEffect(() => {
     const cached = sessionStorage.getItem("weatherData");
@@ -117,6 +119,13 @@ export default function WeatherIrrigation() {
 
       setRecommendations(data.suggestion);
     } catch (error) {
+
+      if (error?.response?.status === 403) {
+        const d = error.response.data;
+        setUpgradeModal({ open: true, used: d?.used ?? 10, limit: d?.limit ?? 10 });
+        return;
+      }
+
       setRecommendationError("Failed to generate recommendation");
     } finally {
       setLoadingRecommendation(false);
@@ -371,6 +380,16 @@ export default function WeatherIrrigation() {
           </div>
         )}
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        open={upgradeModal.open}
+        onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
+        featureName="weather & irrigation checks"
+        used={upgradeModal.used}
+        limit={upgradeModal.limit}
+      />
+      
     </DashboardLayout>
   );
 }
