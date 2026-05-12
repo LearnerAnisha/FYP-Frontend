@@ -133,6 +133,8 @@ export default function DiseaseDetection() {
     setSelectedImage(null);
     setImageFile(null);
     clearState();
+    const input = document.getElementById("image-upload");
+    if (input) input.value = "";
   };
 
   const handleAnalyze = async () => {
@@ -266,6 +268,7 @@ export default function DiseaseDetection() {
                   type="file"
                   accept="image/*"
                   onChange={handleImageUpload}
+                  onClick={(e) => { e.target.value = "";}}
                   className="hidden"
                 />
               </div>
