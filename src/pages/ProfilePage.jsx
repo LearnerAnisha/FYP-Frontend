@@ -78,10 +78,15 @@ const MOCK_CURRENT_PLAN = { id: "free", renewDate: null, billingCycle: null };
 export default function ProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
 
+  // Added totalScans, savedReports, successRate to initial state
   const [profileData, setProfileData] = useState({
     fullName: "", email: "", phone: "", avatar: null,
     location: "", farmSize: "", cropTypes: "", experience: "",
-    bio: "", language: "nepali", joinDate: "", activeDays: 0,
+    bio: "", language: "nepali", joinDate: "",
+    activeDays: 0,
+    totalScans: 0,
+    savedReports: 0,
+    successRate: "0%",
   });
 
   const [notifications, setNotifications] = useState({
@@ -105,6 +110,10 @@ export default function ProfilePage() {
           phone: data.phone || "",
           avatar: data.avatar,
           activeDays: data.active_days || 0,
+          // Map new fields from backend
+          totalScans: data.total_scans || 0,
+          savedReports: data.saved_reports || 0,
+          successRate: data.success_rate || "0%",
           joinDate: data.date_joined ? new Date(data.date_joined).toLocaleDateString() : "",
           farmSize: data.farmer_profile?.farm_size || "",
           experience: data.farmer_profile?.experience || "",
@@ -177,6 +186,7 @@ export default function ProfilePage() {
     }, 1000);
   };
 
+  // After successful export, re-fetch profile to update savedReports count
   const handleExportData = async () => {
     if (currentPlan.id !== "pro") {
       toast.error("Data export is a PRO feature. Please upgrade your plan.");
@@ -185,6 +195,12 @@ export default function ProfilePage() {
     try {
       await exportData();
       toast.success("Your data export has started downloading.");
+      // Re-fetch profile so savedReports count updates immediately
+      const data = await fetchProfile();
+      setProfileData((prev) => ({
+        ...prev,
+        savedReports: data.saved_reports || 0,
+      }));
     } catch {
       toast.error("Failed to export data. Please try again.");
     }
@@ -239,7 +255,6 @@ export default function ProfilePage() {
     try {
       await deleteAccount();
       toast.success("Account deleted successfully. You will be logged out.");
-      // Optionally, redirect to login page or handle logout here if needed
     } catch (err) {
       toast.error(err.response?.data?.message || "Failed to delete account. Please try again.");
     }
@@ -252,11 +267,12 @@ export default function ProfilePage() {
     ? profileData.avatar
     : `${import.meta.env.VITE_API_BASE_URL}${profileData.avatar}`;
 
+  // All 4 stats are now dynamic
   const stats = [
-    { label: "Total Scans", value: "156", icon: CheckCircle2, color: "text-primary" },
-    { label: "Active Days", value: profileData.activeDays || 0, icon: Calendar },
-    { label: "Saved Reports", value: "24", icon: Download, color: "text-accent" },
-    { label: "Success Rate", value: "94%", icon: CheckCircle2, color: "text-success" },
+    { label: "Total Scans", value: profileData.totalScans, icon: CheckCircle2, color: "text-primary" },
+    { label: "Active Days", value: profileData.activeDays, icon: Calendar },
+    { label: "Saved Reports", value: profileData.savedReports, icon: Download, color: "text-accent" },
+    { label: "Success Rate", value: profileData.successRate, icon: CheckCircle2, color: "text-success" },
   ];
 
   return (
@@ -545,7 +561,6 @@ export default function ProfilePage() {
                       <div className="flex-1">
                         <h4 className="font-semibold text-foreground mb-1">Delete Account</h4>
                         <p className="text-sm text-muted-foreground mb-3">Permanently delete your account and all associated data. This action cannot be undone.</p>
-                        {/* Replace the existing AlertDialogTrigger block */}
                         {currentPlan.id === "pro" ? (
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
@@ -593,8 +608,7 @@ export default function ProfilePage() {
             <Card className={`border-2 ${currentPlan.id !== "free" ? "border-primary/40 bg-primary/5" : "border-border"}`}>
               <CardContent className="p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"
-                    }`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0 ${currentPlan.id !== "free" ? "bg-primary text-primary-foreground" : "bg-muted"}`}>
                     <ActiveIcon className="w-7 h-7" />
                   </div>
                   <div className="flex-1">
@@ -647,15 +661,13 @@ export default function ProfilePage() {
               <div className="inline-flex items-center gap-2 bg-muted rounded-xl p-1.5">
                 <button
                   onClick={() => setIsYearly(false)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 ${!isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Monthly
                 </button>
                 <button
                   onClick={() => setIsYearly(true)}
-                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
+                  className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 flex items-center gap-2 ${isYearly ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
                 >
                   Yearly
                   <span className="text-xs bg-primary/15 text-primary px-1.5 py-0.5 rounded-full font-semibold">20% off</span>
@@ -663,7 +675,7 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            {/* Plan cards — 2 cols */}
+            {/* Plan cards */}
             <div className="grid md:grid-cols-2 gap-6 max-w-2xl">
               {plans.map((plan) => {
                 const Icon = plan.icon;
@@ -674,10 +686,10 @@ export default function ProfilePage() {
                   <Card
                     key={plan.id}
                     className={`relative flex flex-col transition-smooth ${isActive
-                        ? "border-primary shadow-lg ring-2 ring-primary/30"
-                        : plan.highlight
-                          ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
-                          : "border-border hover:border-primary/30 hover:shadow-elegant"
+                      ? "border-primary shadow-lg ring-2 ring-primary/30"
+                      : plan.highlight
+                        ? "border-primary/40 ring-2 ring-primary/15 shadow-md"
+                        : "border-border hover:border-primary/30 hover:shadow-elegant"
                       }`}
                   >
                     {isActive && (
@@ -694,8 +706,7 @@ export default function ProfilePage() {
                     )}
                     <CardHeader className="pt-8 pb-4">
                       <div className="flex items-center gap-3 mb-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive || plan.highlight ? "bg-primary" : "bg-primary/10"
-                          }`}>
+                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive || plan.highlight ? "bg-primary" : "bg-primary/10"}`}>
                           <Icon className={`w-5 h-5 ${isActive || plan.highlight ? "text-primary-foreground" : "text-primary"}`} />
                         </div>
                         <CardTitle className="text-lg font-display">{plan.name}</CardTitle>
@@ -723,10 +734,10 @@ export default function ProfilePage() {
                       </ul>
                       <Button
                         className={`w-full gap-2 ${isActive
-                            ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
-                            : plan.highlight
-                              ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
-                              : ""
+                          ? "bg-primary/10 text-primary border border-primary/30 cursor-default"
+                          : plan.highlight
+                            ? "bg-gradient-primary text-primary-foreground hover:opacity-90"
+                            : ""
                           }`}
                         variant={isActive ? "ghost" : plan.highlight ? "default" : "outline"}
                         disabled={isActive || isLoadingThis}
@@ -749,7 +760,7 @@ export default function ProfilePage() {
               })}
             </div>
 
-            {/* Comparison table — 4 real features */}
+            {/* Comparison table */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-lg">Plan Comparison</CardTitle>
@@ -761,8 +772,7 @@ export default function ProfilePage() {
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-6 font-semibold text-foreground w-1/2">Feature</th>
                       {plans.map((p) => (
-                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"
-                          }`}>
+                        <th key={p.id} className={`text-center py-3 px-4 font-semibold ${p.id === currentPlan.id ? "text-primary" : "text-foreground"}`}>
                           {p.name}
                         </th>
                       ))}
@@ -773,8 +783,7 @@ export default function ProfilePage() {
                       <tr key={row.label} className="hover:bg-muted/30 transition-colors">
                         <td className="py-3 px-6 text-muted-foreground">{row.label}</td>
                         {row.values.map((val, i) => (
-                          <td key={i} className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"
-                            }`}>
+                          <td key={i} className={`text-center py-3 px-4 ${plans[i].id === currentPlan.id ? "font-semibold text-primary" : "text-foreground"}`}>
                             {val === "✓" ? (
                               <CheckCircle2 className="w-4 h-4 text-primary mx-auto" />
                             ) : val === "—" ? (
