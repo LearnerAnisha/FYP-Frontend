@@ -89,11 +89,6 @@ export default function ProfilePage() {
     successRate: "0%",
   });
 
-  const [notifications, setNotifications] = useState({
-    emailNotifications: true, smsAlerts: true, diseaseAlerts: true,
-    weatherAlerts: true, priceAlerts: false, weeklyReports: true,
-  });
-
   const [passwords, setPasswords] = useState({ current: "", new: "", confirm: "" });
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
@@ -176,14 +171,6 @@ export default function ProfilePage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleNotificationUpdate = () => {
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast.success("Notification preferences updated!");
-    }, 1000);
   };
 
   // After successful export, re-fetch profile to update savedReports count
@@ -358,7 +345,6 @@ export default function ProfilePage() {
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>
             <TabsTrigger value="privacy">Privacy</TabsTrigger>
             <TabsTrigger value="subscription" className="flex items-center gap-1.5">
@@ -436,41 +422,6 @@ export default function ProfilePage() {
             </Card>
           </TabsContent>
 
-          {/* Notifications */}
-          <TabsContent value="notifications" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Manage how you receive updates and alerts</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  {[
-                    { id: "emailNotifications", label: "Email Notifications", sub: "Receive updates and alerts via email" },
-                    { id: "smsAlerts", label: "SMS Alerts", sub: "Get important alerts via text message" },
-                    { id: "diseaseAlerts", label: "Disease Detection Alerts", sub: "Notifications when diseases are detected" },
-                    { id: "weatherAlerts", label: "Weather Alerts", sub: "Updates on weather changes affecting your crops" },
-                    { id: "priceAlerts", label: "Price Alerts", sub: "Market price updates and predictions" },
-                    { id: "weeklyReports", label: "Weekly Reports", sub: "Summary of your farming activities" },
-                  ].map((item) => (
-                    <div key={item.id} className="flex items-center justify-between p-4 rounded-lg bg-muted/50">
-                      <div className="space-y-0.5">
-                        <Label htmlFor={item.id} className="text-base font-medium cursor-pointer">{item.label}</Label>
-                        <p className="text-sm text-muted-foreground">{item.sub}</p>
-                      </div>
-                      <Switch id={item.id} checked={notifications[item.id]} onCheckedChange={(c) => setNotifications({ ...notifications, [item.id]: c })} />
-                    </div>
-                  ))}
-                </div>
-                <div className="flex justify-end">
-                  <Button onClick={handleNotificationUpdate} disabled={isLoading} className="bg-gradient-primary text-primary-foreground">
-                    {isLoading ? <><span className="animate-spin mr-2">○</span>Saving...</> : <><Bell className="w-4 h-4 mr-2" />Save Preferences</>}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
           {/* Security */}
           <TabsContent value="security" className="space-y-6">
             <Card>
@@ -501,21 +452,6 @@ export default function ProfilePage() {
                 </form>
               </CardContent>
             </Card>
-
-            <Card className="border-warning/20">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-warning">
-                  <AlertCircle className="w-5 h-5" />Two-Factor Authentication
-                </CardTitle>
-                <CardDescription>Add an extra layer of security to your account</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Two-factor authentication adds an additional layer of security by requiring more than just a password to sign in.
-                </p>
-                <Button variant="outline"><Shield className="w-4 h-4 mr-2" />Enable 2FA</Button>
-              </CardContent>
-            </Card>
           </TabsContent>
 
           {/* Privacy */}
@@ -541,16 +477,6 @@ export default function ProfilePage() {
                           <Download className="w-4 h-4 mr-2" />
                           {currentPlan.id === "pro" ? "Request Data Export" : "PRO Only — Upgrade to Export"}
                         </Button>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4 rounded-lg border border-border">
-                    <div className="flex items-start gap-3">
-                      <Upload className="w-5 h-5 text-primary mt-0.5" />
-                      <div className="flex-1">
-                        <h4 className="font-semibold text-foreground mb-1">Import Data</h4>
-                        <p className="text-sm text-muted-foreground mb-3">Import your farming data from other platforms or backups.</p>
-                        <Button variant="outline"><Upload className="w-4 h-4 mr-2" />Import Data</Button>
                       </div>
                     </div>
                   </div>
