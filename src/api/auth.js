@@ -23,3 +23,15 @@ export async function resendOTP(data) {
   const response = await apiClient.post("/api/auth/resend-otp/", data);
   return response.data;
 }
+
+// Forgot password — sends reset link to email
+export async function forgotPassword(data) {
+  const response = await apiClient.post("/api/auth/forgot-password/", data);
+  return response.data;
+}
+
+// Reset password — validates token and sets new password
+export async function resetPassword(data) {
+  const response = await apiClient.post("/api/auth/reset-password/", data);
+  return response.data;
+}

@@ -5,6 +5,8 @@ import "@/App.css";
 import LandingPage from "@/pages/LandingPage";
 import AuthPage from "@/pages/AuthPage";
 import VerifyOTP from "@/pages/VerifyOTP";
+import ForgotPassword from "@/pages/ForgotPassword";   
+import ResetPassword from "@/pages/ResetPassword";     
 
 // User Pages
 import Dashboard from "@/pages/Dashboard";
@@ -36,67 +38,24 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <Routes>
-          {/*  PUBLIC ROUTES */}
+          {/* PUBLIC ROUTES */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/verify-otp" element={<VerifyOTP />} />
           <Route path="/pricing" element={<PricingPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />  {/* NEW */}
+          <Route path="/reset-password" element={<ResetPassword />} />    {/* NEW */}
 
-          {/*  PROTECTED USER ROUTES */}
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/disease-detection"
-            element={
-              <ProtectedRoute>
-                <DiseaseDetection />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/weather-irrigation"
-            element={
-              <ProtectedRoute>
-                <WeatherIrrigation />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/price-predictor"
-            element={
-              <ProtectedRoute>
-                <PricePredictor />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/chatbot"
-            element={
-              <ProtectedRoute>
-                <ChatbotPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <ProfilePage />
-              </ProtectedRoute>
-            }
-          />
+          {/* PROTECTED USER ROUTES */}
+          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/disease-detection" element={<ProtectedRoute><DiseaseDetection /></ProtectedRoute>} />
+          <Route path="/weather-irrigation" element={<ProtectedRoute><WeatherIrrigation /></ProtectedRoute>} />
+          <Route path="/price-predictor" element={<ProtectedRoute><PricePredictor /></ProtectedRoute>} />
+          <Route path="/chatbot" element={<ProtectedRoute><ChatbotPage /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
 
           {/* ADMIN ROUTES */}
-          {/* Admin Login - Public */}
           <Route path="/admin/login" element={<AdminLogin />} />
-
-          {/* Protected Admin Routes with Layout */}
           <Route
             path="/admin/*"
             element={
@@ -110,22 +69,16 @@ function App() {
                     <Route path="price-predictor" element={<PricePredictorManager />} />
                     <Route path="settings" element={<AdminSettings />} />
                     <Route path="subscriptions" element={<SubscriptionManager />} />
-
-                    {/* Redirect /admin to /admin/dashboard */}
                     <Route path="" element={<Navigate to="/admin/dashboard" replace />} />
-
-                    {/* Catch all within /admin/* */}
                     <Route path="*" element={<Navigate to="/admin/dashboard" replace />} />
                   </Routes>
                 </AdminLayout>
               </ProtectedAdminRoute>
             }
           />
-
-          {/* Redirect /admin to /admin/dashboard */}
           <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
 
-          {/* 404 - NOT FOUND */}
+          {/* 404 */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>
@@ -134,22 +87,17 @@ function App() {
   );
 }
 
-// 404 Component
-const NotFound = () => {
-  return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="text-center">
-        <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
-        <p className="text-xl text-gray-600 mb-8">Page not found</p>
-        <div className="space-x-4">
-          <a href="/"
-            className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800">Go Home</a>
-          <a href="/dashboard"
-            className="inline-block bg-gray-200 text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-300">Go to Dashboard</a>
-        </div>
+const NotFound = () => (
+  <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+    <div className="text-center">
+      <h1 className="text-6xl font-bold text-gray-900 mb-4">404</h1>
+      <p className="text-xl text-gray-600 mb-8">Page not found</p>
+      <div className="space-x-4">
+        <a href="/" className="inline-block bg-gray-900 text-white px-6 py-3 rounded-lg hover:bg-gray-800">Go Home</a>
+        <a href="/dashboard" className="inline-block bg-gray-200 text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-300">Go to Dashboard</a>
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 export default App;

@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/tabs";
 
 // Icons & Notifications
-import { Sprout, ArrowLeft } from "lucide-react";
+import { Sprout, ArrowLeft, Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 // Authentication API functions
@@ -30,38 +30,31 @@ export default function AuthPage() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
 
+  // Password visibility toggles
+  const [showSignInPassword, setShowSignInPassword] = useState(false);
+  const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+
   const extractErrorMessage = (error) => {
     const data = error.response?.data;
-
     if (!data) return "Something went wrong. Please try again.";
-
-    // Serializer validation errors (field-level)
     if (data.errors) {
       const firstField = Object.keys(data.errors)[0];
       return data.errors[firstField][0];
     }
-
-    // General error message
     if (data.message) return data.message;
-
     return "Invalid request.";
   };
 
   const handleSignIn = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
     const identifier = document.getElementById("signin-identifier").value;
     const password = document.getElementById("signin-password").value;
-
     try {
       const res = await loginUser({ identifier, password });
-
-      // Persist authentication tokens
       localStorage.setItem("access", res.access);
       localStorage.setItem("refresh", res.refresh);
       localStorage.setItem("user", JSON.stringify(res.user));
-
       toast.success("Login successful!");
       navigate("/dashboard");
     } catch (error) {
@@ -74,29 +67,15 @@ export default function AuthPage() {
   const handleSignUp = async (e) => {
     e.preventDefault();
     setIsLoading(true);
-
     const full_name = document.getElementById("signup-name").value;
     const email = document.getElementById("signup-email").value;
     const phone = document.getElementById("signup-phone").value;
     const password = document.getElementById("signup-password").value;
-    const accepted_terms =
-      e.target.querySelector("input[type='checkbox']").checked;
-
+    const accepted_terms = e.target.querySelector("input[type='checkbox']").checked;
     try {
-      const res = await registerUser({
-        full_name,
-        email,
-        phone,
-        password,
-        accepted_terms,
-      });
-
+      const res = await registerUser({ full_name, email, phone, password, accepted_terms });
       toast.success(res.message);
-
-      // Temporarily store email for OTP verification
       localStorage.setItem("verify_email", email);
-
-      // Redirect to OTP verification screen
       navigate("/verify-otp");
     } catch (error) {
       toast.error(extractErrorMessage(error));
@@ -156,19 +135,43 @@ export default function AuthPage() {
                       required
                     />
                   </div>
+
+                  {/* Password field with eye toggle */}
                   <div>
                     <Label>Password</Label>
-                    <Input
-                      id="signin-password"
-                      type="password"
-                      required
-                    />
+                    <div className="relative">
+                      <Input
+                        id="signin-password"
+                        type={showSignInPassword ? "text" : "password"}
+                        placeholder="Enter your password"
+                        required
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowSignInPassword((v) => !v)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                        aria-label={showSignInPassword ? "Hide password" : "Show password"}
+                      >
+                        {showSignInPassword
+                          ? <EyeOff className="w-4 h-4" />
+                          : <Eye className="w-4 h-4" />
+                        }
+                      </button>
+                    </div>
                   </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}
-                  >
+
+                  {/* Forgot Password link */}
+                  <div className="flex justify-end">
+                    <Link
+                      to="/forgot-password"
+                      className="text-sm text-primary hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
                 </form>
@@ -187,41 +190,44 @@ export default function AuthPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSignUp} className="space-y-4">
-                  <Input
-                    id="signup-name"
-                    placeholder="Full Name"
-                    required
-                  />
-                  <Input
-                    id="signup-email"
-                    type="email"
-                    placeholder="Email"
-                    required
-                  />
-                  <Input
-                    id="signup-phone"
-                    placeholder="98XXXXXXXX"
-                    required
-                  />
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Strong password"
-                    required
-                  />
+                  <Input id="signup-name" placeholder="Full Name" required />
+                  <Input id="signup-email" type="email" placeholder="Email" required />
+                  <Input id="signup-phone" placeholder="98XXXXXXXX" required />
 
-                  <div className="flex items-start gap-2">
-                    <input type="checkbox" required />
+                  {/* Sign-up password with eye toggle */}
+                  <div className="relative">
+                    <Input
+                      id="signup-password"
+                      type={showSignUpPassword ? "text" : "password"}
+                      placeholder="Strong password"
+                      required
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSignUpPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
+                      aria-label={showSignUpPassword ? "Hide password" : "Show password"}
+                    >
+                      {showSignUpPassword
+                        ? <EyeOff className="w-4 h-4" />
+                        : <Eye className="w-4 h-4" />
+                      }
+                    </button>
+                  </div>
+
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      required
+                      className="w-4 h-4 mt-0 rounded border-gray-300 accent-primary cursor-pointer flex-shrink-0"
+                    />
                     <span className="text-sm text-muted-foreground">
                       I agree to the Terms & Privacy Policy
                     </span>
-                  </div>
+                  </label>
 
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isLoading}
-                  >
+                  <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Creating account..." : "Create Account"}
                   </Button>
                 </form>
