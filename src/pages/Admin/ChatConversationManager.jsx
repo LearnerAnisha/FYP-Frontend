@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from "react";
 import {
   Search, RefreshCw, MessageSquare, MessagesSquare,
@@ -44,7 +45,7 @@ export default function ChatConversationManager() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [showDeleted, setShowDeleted] = useState(true); // ✅ toggle to show/hide deleted
+  const [showDeleted, setShowDeleted] = useState(true); //
 
   const [selectedConversation, setSelectedConversation] = useState(null);
 
@@ -68,7 +69,7 @@ export default function ChatConversationManager() {
       setStats({
         totalConversations: statsRes?.chatbot?.total_conversations || 0,
         totalMessages: statsRes?.chatbot?.total_messages || 0,
-        deletedConversations: statsRes?.chatbot?.deleted_conversations || 0, // ✅ new
+        deletedConversations: statsRes?.chatbot?.deleted_conversations || 0, 
       });
     } catch (err) {
       setError("Failed to load chat conversations.");

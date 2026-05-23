@@ -130,8 +130,8 @@ export default function SubscriptionManager() {
     setForm({
       plan: sub?.plan || "",
       is_active: !!sub?.is_active,
-      start_date: sub?.start_date ? String(sub.start_date).slice(0, 10) : "",
-      end_date: sub?.end_date ? String(sub.end_date).slice(0, 10) : "",
+      start_date: sub?.starts_at ? String(sub.starts_at).slice(0, 10) : "",
+      end_date: sub?.expires_at ? String(sub.expires_at).slice(0, 10) : "",
     });
   };
 
@@ -280,10 +280,10 @@ export default function SubscriptionManager() {
                       <tr key={sub.id || sub.pk} className="border-b border-border/60">
                         <td className="py-4 pr-4">
                           <div className="font-medium text-foreground">
-                            {sub?.user?.full_name || "Unknown User"}
+                            {sub?.user_name || "Unknown User"}
                           </div>
                           <div className="text-xs text-muted-foreground">
-                            {sub?.user?.email || "-"}
+                            {sub?.user_email || "-"}
                           </div>
                         </td>
                         <td className="py-4 pr-4">
@@ -302,10 +302,10 @@ export default function SubscriptionManager() {
                           </Badge>
                         </td>
                         <td className="py-4 pr-4 text-muted-foreground">
-                          {sub?.start_date ? String(sub.start_date).slice(0, 10) : "-"}
+                          {sub?.starts_at ? String(sub.starts_at).slice(0, 10) : "-"}
                         </td>
                         <td className="py-4 pr-4 text-muted-foreground">
-                          {sub?.end_date ? String(sub.end_date).slice(0, 10) : "-"}
+                          {sub?.expires_at ? String(sub.expires_at).slice(0, 10) : "Never"}
                         </td>
                         <td className="py-4 pr-4">
                           <div className="flex flex-wrap gap-2">
