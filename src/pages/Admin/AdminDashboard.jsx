@@ -1,24 +1,26 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
-  Users, UserCheck, UserX, Shield, TrendingUp,
+  Users, UserCheck, UserX, Shield,
   CreditCard, CheckCircle, XCircle, Leaf, MessageSquare,
-  DollarSign, ArrowRight, RefreshCw
+  MessagesSquare, Trash2, DollarSign, ArrowRight, RefreshCw
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  Legend, ResponsiveContainer
+  XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer
 } from 'recharts';
 import { getDashboardStats } from '@/api/admin';
 
-// ── colour tokens aligned with user panel chart vars ──────────────────────────
-const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
+const COLORS = [
+  'hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))',
+  'hsl(var(--chart-4))', 'hsl(var(--chart-5))'
+];
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -48,15 +50,18 @@ const AdminDashboard = () => {
   if (error) return (
     <div className="flex flex-col items-center justify-center h-64 gap-4">
       <p className="text-destructive">{error}</p>
-      <Button onClick={load} variant="outline"><RefreshCw className="w-4 h-4 mr-2" />Retry</Button>
+      <Button onClick={load} variant="outline">
+        <RefreshCw className="w-4 h-4 mr-2" />Retry
+      </Button>
     </div>
   );
 
   const overview = stats?.overview ?? {};
   const regs = stats?.registrations ?? {};
   const subs = stats?.subscriptions ?? {};
+  const chatbot = stats?.chatbot ?? {};
 
-  // ── derived chart datasets ─────────────────────────────────────────────────
+  // chart data 
   const userDistPie = [
     { name: 'Verified', value: overview.verified_users ?? 0 },
     { name: 'Unverified', value: overview.unverified_users ?? 0 },
@@ -74,14 +79,14 @@ const AdminDashboard = () => {
     { period: 'This Month', count: regs.this_month ?? 0 },
   ];
 
-  // weekly trend — use stats.weekly_trend if your API provides it, else derive
   const weeklyTrend = stats?.weekly_trend ?? [
     { day: 'Mon', users: 0 }, { day: 'Tue', users: 0 }, { day: 'Wed', users: 0 },
     { day: 'Thu', users: 0 }, { day: 'Fri', users: 0 }, { day: 'Sat', users: 0 },
     { day: 'Sun', users: 0 },
   ];
 
-  const statCards = [
+  // stat cards 
+  const userStatCards = [
     { icon: Users, title: 'Total Users', value: overview.total_users ?? 0, color: 'text-chart-1' },
     { icon: UserCheck, title: 'Verified Users', value: overview.verified_users ?? 0, color: 'text-chart-2' },
     { icon: UserX, title: 'Unverified', value: overview.unverified_users ?? 0, color: 'text-destructive' },
@@ -92,8 +97,16 @@ const AdminDashboard = () => {
     { icon: Leaf, title: 'Total Farmers', value: overview.total_farmers ?? 0, color: 'text-primary' },
   ];
 
+  // Separate chatbot stat cards
+  const chatbotStatCards = [
+    { icon: MessagesSquare, title: 'Total Conversations', value: chatbot.total_conversations ?? 0, color: 'text-primary' },
+    { icon: MessageSquare, title: 'Total Messages', value: chatbot.total_messages ?? 0, color: 'text-chart-4' },
+    { icon: Trash2, title: 'Deleted by Users', value: chatbot.deleted_conversations ?? 0, color: 'text-destructive' },
+  ];
+
   return (
     <div className="space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -105,9 +118,9 @@ const AdminDashboard = () => {
         </Button>
       </div>
 
-      {/* ── Stat Cards ─────────────────────────────────────────────────────── */}
+      {/* User & Subscription Stat Cards  */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map((s, i) => {
+        {userStatCards.map((s, i) => {
           const Icon = s.icon;
           return (
             <Card key={i}>
@@ -127,10 +140,36 @@ const AdminDashboard = () => {
         })}
       </div>
 
-      {/* ── Charts Row 1 ───────────────────────────────────────────────────── */}
+      {/* Chatbot Stat Cards  */}
+      <div>
+        <h2 className="text-lg font-display font-semibold text-foreground mb-3">
+          AI Chatbot Stats
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {chatbotStatCards.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <Card key={i}>
+                <CardContent className="p-6 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                    <Icon className={`w-6 h-6 ${s.color}`} />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">{s.title}</p>
+                    <p className="text-2xl font-display font-bold text-foreground">
+                      {s.value.toLocaleString()}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Charts Row 1  */}
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* Registration Bar Chart */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="font-display">New Registrations</CardTitle>
@@ -152,7 +191,6 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* User Distribution Pie */}
         <Card>
           <CardHeader>
             <CardTitle className="font-display">User Distribution</CardTitle>
@@ -184,14 +222,13 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* ── Charts Row 2 ───────────────────────────────────────────────────── */}
+      {/* Charts Row 2  */}
       <div className="grid lg:grid-cols-3 gap-6">
 
-        {/* Weekly Activity Area Chart */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="font-display">Weekly User Activity</CardTitle>
-            <CardDescription>Daily active registrations this week</CardDescription>
+            <CardDescription>Daily new registrations this week</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={220}>
@@ -216,7 +253,6 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
 
-        {/* Subscription Pie */}
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Subscriptions</CardTitle>
@@ -249,7 +285,7 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* ── Quick Actions (same pattern as user Dashboard) ─────────────────── */}
+      {/* Quick Actions*/}
       <div>
         <h2 className="text-xl font-display font-semibold text-foreground mb-4">Quick Actions</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -261,9 +297,11 @@ const AdminDashboard = () => {
           ].map((a, i) => {
             const Icon = a.icon;
             return (
-              <Card key={i}
+              <Card
+                key={i}
                 className="group cursor-pointer hover:shadow-elegant transition-smooth hover:border-primary/50"
-                onClick={() => navigate(a.path)}>
+                onClick={() => navigate(a.path)}
+              >
                 <CardContent className="p-6 space-y-4">
                   <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                     <Icon className="w-6 h-6 text-primary" />
@@ -279,6 +317,7 @@ const AdminDashboard = () => {
           })}
         </div>
       </div>
+
     </div>
   );
 };

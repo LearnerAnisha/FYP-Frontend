@@ -1,20 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  Search,
-  RefreshCw,
-  MessageSquare,
-  MessagesSquare,
-  Trash2,
-  Eye,
-  User,
-  Clock3,
+  Search, RefreshCw, MessageSquare, MessagesSquare,
+  Trash2, Eye, User, Clock3, Pencil, AlertTriangle,
 } from "lucide-react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
+  Card, CardContent, CardHeader, CardTitle, CardDescription,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +32,11 @@ const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
 export default function ChatConversationManager() {
   const [conversations, setConversations] = useState([]);
   const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
-  const [stats, setStats] = useState({ totalConversations: 0, totalMessages: 0 });
+  const [stats, setStats] = useState({
+    totalConversations: 0,
+    totalMessages: 0,
+    deletedConversations: 0,
+  });
 
   const [loading, setLoading] = useState(true);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -50,19 +44,16 @@ export default function ChatConversationManager() {
 
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [showDeleted, setShowDeleted] = useState(true); // ✅ toggle to show/hide deleted
 
   const [selectedConversation, setSelectedConversation] = useState(null);
 
   const loadConversations = async (customPage = page) => {
     setLoading(true);
     setError("");
-
     try {
       const [listRes, statsRes] = await Promise.all([
-        getChatConversations({
-          page: customPage,
-          search: search || undefined,
-        }),
+        getChatConversations({ page: customPage, search: search || undefined }),
         getDashboardStats(),
       ]);
 
@@ -77,6 +68,7 @@ export default function ChatConversationManager() {
       setStats({
         totalConversations: statsRes?.chatbot?.total_conversations || 0,
         totalMessages: statsRes?.chatbot?.total_messages || 0,
+        deletedConversations: statsRes?.chatbot?.deleted_conversations || 0, // ✅ new
       });
     } catch (err) {
       setError("Failed to load chat conversations.");
@@ -107,7 +99,7 @@ export default function ChatConversationManager() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm("Delete this conversation?")) return;
+    if (!window.confirm("Permanently delete this conversation?")) return;
     try {
       await deleteChatConversation(id);
       if (selectedConversation && (selectedConversation.id === id || selectedConversation.pk === id)) {
@@ -118,6 +110,12 @@ export default function ChatConversationManager() {
       setError("Failed to delete conversation.");
     }
   };
+
+  // Filter deleted ones on frontend if toggle is off
+  const visibleConversations = useMemo(() => {
+    if (showDeleted) return conversations;
+    return conversations.filter((c) => !c.is_deleted);
+  }, [conversations, showDeleted]);
 
   const pageStats = useMemo(() => {
     const withUsers = conversations.filter((c) => c?.user_name).length;
@@ -135,16 +133,17 @@ export default function ChatConversationManager() {
         </p>
       </div>
 
+      {/* Updated stat cards — includes deleted count */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard title="Total Conversations" value={stats.totalConversations} icon={MessagesSquare} color="text-primary" />
         <StatCard title="Total Messages" value={stats.totalMessages} icon={MessageSquare} color="text-chart-4" />
-        <StatCard title="Loaded Records" value={conversations.length} icon={Eye} color="text-chart-5" />
+        <StatCard title="Deleted (Soft)" value={stats.deletedConversations} icon={Trash2} color="text-destructive" />
         <StatCard title="Linked Users" value={pageStats.withUsers} icon={User} color="text-success" />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-display">Search</CardTitle>
+          <CardTitle className="font-display">Search & Filter</CardTitle>
           <CardDescription>Find conversations by session, user name, or email</CardDescription>
         </CardHeader>
         <CardContent>
@@ -154,17 +153,24 @@ export default function ChatConversationManager() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && applySearch()}
                 placeholder="Search conversations"
                 className="w-full h-10 rounded-lg border border-border bg-background pl-9 pr-3 text-sm outline-none focus:border-primary"
               />
             </div>
             <Button onClick={applySearch}>
-              <Search className="w-4 h-4 mr-2" />
-              Apply
+              <Search className="w-4 h-4 mr-2" />Apply
             </Button>
             <Button variant="outline" onClick={() => loadConversations()}>
-              <RefreshCw className="w-4 h-4 mr-2" />
-              Refresh
+              <RefreshCw className="w-4 h-4 mr-2" />Refresh
+            </Button>
+            {/* Toggle to show/hide soft-deleted conversations */}
+            <Button
+              variant={showDeleted ? "default" : "outline"}
+              onClick={() => setShowDeleted((v) => !v)}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              {showDeleted ? "Hiding None" : "Show Deleted"}
             </Button>
           </div>
 
@@ -177,6 +183,7 @@ export default function ChatConversationManager() {
       </Card>
 
       <div className="grid xl:grid-cols-[1.15fr_0.85fr] gap-6">
+        {/* Conversation List */}
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Conversation List</CardTitle>
@@ -185,14 +192,17 @@ export default function ChatConversationManager() {
           <CardContent>
             {loading ? (
               <div className="py-12 text-center text-muted-foreground">Loading conversations...</div>
-            ) : conversations.length === 0 ? (
+            ) : visibleConversations.length === 0 ? (
               <div className="py-12 text-center text-muted-foreground">No conversations found.</div>
             ) : (
               <div className="space-y-3">
-                {conversations.map((conversation) => (
+                {visibleConversations.map((conversation) => (
                   <div
                     key={conversation.id || conversation.pk}
-                    className="rounded-xl border border-border p-4 flex flex-col gap-3"
+                    className={`rounded-xl border p-4 flex flex-col gap-3 ${conversation.is_deleted
+                        ? "border-destructive/30 bg-destructive/5"  
+                        : "border-border"
+                      }`}
                   >
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                       <div className="space-y-1">
@@ -205,26 +215,32 @@ export default function ChatConversationManager() {
                         <p className="text-xs text-muted-foreground break-all">
                           Session: {conversation?.session_id?.slice(-8) || "N/A"}
                         </p>
+                        {/* Show deleted timestamp */}
+                        {conversation.is_deleted && conversation.deleted_at && (
+                          <p className="text-xs text-destructive">
+                            Deleted: {new Date(conversation.deleted_at).toLocaleString()}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex flex-wrap gap-2">
                         <Badge variant="outline">
                           Messages: {conversation?.message_count ?? conversation?.messages_count ?? "-"}
                         </Badge>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/10">
-                          Chat
-                        </Badge>
+                        {/* Deleted badge */}
+                        {conversation.is_deleted ? (
+                          <Badge variant="destructive">Deleted</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-primary/10 text-primary hover:bg-primary/10">
+                            Active
+                          </Badge>
+                        )}
                       </div>
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDetail(conversation)}
-                      >
-                        <Eye className="w-4 h-4 mr-1" />
-                        View
+                      <Button variant="outline" size="sm" onClick={() => openDetail(conversation)}>
+                        <Eye className="w-4 h-4 mr-1" />View
                       </Button>
                       <Button
                         variant="outline"
@@ -232,8 +248,7 @@ export default function ChatConversationManager() {
                         className="text-destructive hover:text-destructive"
                         onClick={() => handleDelete(conversation.id || conversation.pk)}
                       >
-                        <Trash2 className="w-4 h-4 mr-1" />
-                        Delete
+                        <Trash2 className="w-4 h-4 mr-1" />Delete
                       </Button>
                     </div>
                   </div>
@@ -242,18 +257,10 @@ export default function ChatConversationManager() {
                 <div className="flex items-center justify-between pt-3">
                   <p className="text-sm text-muted-foreground">Page {page}</p>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      disabled={!meta.previous}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                    >
+                    <Button variant="outline" disabled={!meta.previous} onClick={() => setPage((p) => Math.max(1, p - 1))}>
                       Previous
                     </Button>
-                    <Button
-                      variant="outline"
-                      disabled={!meta.next}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
+                    <Button variant="outline" disabled={!meta.next} onClick={() => setPage((p) => p + 1)}>
                       Next
                     </Button>
                   </div>
@@ -263,6 +270,7 @@ export default function ChatConversationManager() {
           </CardContent>
         </Card>
 
+        {/* Conversation Detail */}
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Conversation Detail</CardTitle>
@@ -277,27 +285,42 @@ export default function ChatConversationManager() {
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-xl border border-border p-4">
-                  <p className="font-medium text-foreground">
-                    {selectedConversation?.user_name || "Anonymous User"}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {selectedConversation?.user_email || "No email"}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1 break-all">
-                    Session: {selectedConversation?.session_id?.slice(-8) || "N/A"}
-                  </p>
+                {/* Conversation meta */}
+                <div className={`rounded-xl border p-4 ${selectedConversation.is_deleted ? "border-destructive/30 bg-destructive/5" : "border-border"}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {selectedConversation?.user_name || "Anonymous User"}
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        {selectedConversation?.user_email || "No email"}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1 break-all">
+                        Session: {selectedConversation?.session_id?.slice(-8) || "N/A"}
+                      </p>
+                    </div>
+                    {/* Show deleted warning in detail */}
+                    {selectedConversation.is_deleted && (
+                      <div className="flex items-center gap-1 text-xs text-destructive shrink-0">
+                        <AlertTriangle className="w-3.5 h-3.5" />
+                        Deleted by user
+                      </div>
+                    )}
+                  </div>
+                  {selectedConversation.is_deleted && selectedConversation.deleted_at && (
+                    <p className="text-xs text-destructive mt-2">
+                      Deleted at: {new Date(selectedConversation.deleted_at).toLocaleString()}
+                    </p>
+                  )}
                 </div>
 
+                {/* Messages */}
                 <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
                   {(selectedConversation?.messages || []).length === 0 ? (
                     <div className="text-sm text-muted-foreground">No messages found.</div>
                   ) : (
                     selectedConversation.messages.map((message, index) => (
-                      <div
-                        key={message.id || index}
-                        className="rounded-xl border border-border p-4"
-                      >
+                      <div key={message.id || index} className="rounded-xl border border-border p-4">
                         <div className="flex items-center justify-between gap-2 mb-2">
                           <Badge
                             variant="secondary"
@@ -309,16 +332,44 @@ export default function ChatConversationManager() {
                           >
                             {message.role || "message"}
                           </Badge>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <Clock3 className="w-3 h-3" />
-                            {message.timestamp
-                              ? new Date(message.timestamp).toLocaleString()
-                              : "No time"}
+                          <div className="flex items-center gap-2">
+                            {/* Edited badge */}
+                            {message.is_edited && (
+                              <Badge variant="outline" className="text-xs gap-1">
+                                <Pencil className="w-2.5 h-2.5" />
+                                Edited
+                              </Badge>
+                            )}
+                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Clock3 className="w-3 h-3" />
+                              {message.timestamp
+                                ? new Date(message.timestamp).toLocaleString()
+                                : "No time"}
+                            </div>
                           </div>
                         </div>
+
+                        {/* Message content */}
                         <p className="text-sm text-foreground whitespace-pre-wrap break-words">
                           {message.content || "No content"}
                         </p>
+
+                        {/* Show original content if edited */}
+                        {message.is_edited && message.original_content && (
+                          <div className="mt-3 pt-3 border-t border-border">
+                            <p className="text-xs font-medium text-muted-foreground mb-1">
+                              Original message:
+                            </p>
+                            <p className="text-xs text-muted-foreground/70 italic whitespace-pre-wrap">
+                              {message.original_content}
+                            </p>
+                            {message.edited_at && (
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Edited at: {new Date(message.edited_at).toLocaleString()}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   )}
