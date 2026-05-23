@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { useDarkMode } from "@/hooks/useDarkMode";
 
-export const DashboardLayout = ({ children }) => {
+export const DashboardLayout = ({ children, noPadding = false }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(() => {
     const saved = localStorage.getItem("sidebarCollapsed");
@@ -84,8 +84,6 @@ export const DashboardLayout = ({ children }) => {
 
       {/* Bottom */}
       <div className="p-4 border-t border-border flex flex-col gap-1">
-
-        {/* Dark / Light toggle */}
         <button onClick={toggleDark}
           className={`flex items-center ${collapsed && !isMobile ? "justify-center" : "gap-3"}
             px-4 py-3 rounded-lg transition-colors w-full text-muted-foreground hover:bg-muted hover:text-foreground`}>
@@ -95,7 +93,6 @@ export const DashboardLayout = ({ children }) => {
           </span>
         </button>
 
-        {/* Profile (Subscription is inside Profile tabs) */}
         <div onClick={() => { navigate("/profile"); if (isMobile) setIsOpen(false); }}
           className={`flex items-center ${collapsed && !isMobile ? "justify-center" : "gap-3"}
             px-4 py-3 rounded-lg transition-colors cursor-pointer
@@ -106,7 +103,6 @@ export const DashboardLayout = ({ children }) => {
           </span>
         </div>
 
-        {/* Logout */}
         <div onClick={handleLogout}
           className={`flex items-center ${collapsed && !isMobile ? "justify-center" : "gap-3"}
             px-4 py-3 rounded-lg transition-colors cursor-pointer text-muted-foreground hover:bg-muted hover:text-destructive`}>
@@ -136,8 +132,10 @@ export const DashboardLayout = ({ children }) => {
         </SheetContent>
       </Sheet>
 
-      <main className="flex-1 overflow-y-auto">
-        <div className="p-4 sm:p-6 lg:p-8">{children}</div>
+      <main className="flex-1 overflow-hidden flex flex-col">
+        <div className={`flex-1 min-h-0 ${noPadding ? "overflow-hidden" : "overflow-y-auto p-4 sm:p-6 lg:p-8"}`}>
+          {children}
+        </div>
       </main>
     </div>
   );

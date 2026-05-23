@@ -27,7 +27,7 @@ export default function WeatherIrrigation() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [weatherError, setWeatherError] = useState(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-  const [setRecommendationError] = useState(null);
+  const [recommendationError,setRecommendationError] = useState(null);
   const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 10 });
 
   useEffect(() => {
@@ -201,7 +201,12 @@ export default function WeatherIrrigation() {
                   {loadingRecommendation ? "Generating..." : "Get AI Recommendation"}
                 </Button>
               </div>
-
+              {recommendationError && (
+                <div className="flex items-center justify-center gap-2 text-destructive text-sm mt-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span>{recommendationError}</span>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>

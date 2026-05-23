@@ -1,11 +1,11 @@
-import { sendChatMessage, getConversationHistory } from "@/api/chat";
+import { sendChatMessage, getConversationHistory, editMessage } from "@/api/chat";
 import { v4 as uuidv4 } from "uuid";
 import { useState, useRef, useEffect } from "react";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Send, Bot, User, Leaf, Lightbulb, Loader2, History } from "lucide-react";
+import { Send, Bot, User, Leaf, Lightbulb, Loader2, History, Pencil, Check, X as XIcon } from "lucide-react";
 import { ChatHistory } from "@/pages/ChatHistory";
 import { UpgradeModal } from "@/components/UpgradeModal";
 
@@ -14,15 +14,19 @@ export default function ChatbotPage() {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showHistory, setShowHistory] = useState(() => {
+    return localStorage.getItem('showHistory') === 'true';
+  });
+
+  // Edit states
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editingContent, setEditingContent] = useState("");
+
   const messagesEndRef = useRef(null);
-  
-  // Get or create session ID from localStorage
-  const [sessionId] = useState(() => {
+
+  const [sessionId, setSessionId] = useState(() => {
     const stored = localStorage.getItem('chatbot_session_id');
-    if (stored) {
-      return stored;
-    }
+    if (stored) return stored;
     const newId = uuidv4();
     localStorage.setItem('chatbot_session_id', newId);
     return newId;
@@ -38,23 +42,21 @@ export default function ChatbotPage() {
     scrollToBottom();
   }, [messages]);
 
-  // Load conversation history on mount
   useEffect(() => {
     const loadHistory = async () => {
       try {
         setIsLoadingHistory(true);
         const data = await getConversationHistory(sessionId);
-        
         if (data.success && data.conversation.messages.length > 0) {
-          // Convert API messages to component format
           const loadedMessages = data.conversation.messages.map(msg => ({
+            id: msg.id,
             role: msg.role,
             content: msg.content,
-            timestamp: new Date(msg.timestamp)
+            timestamp: new Date(msg.timestamp),
+            is_edited: msg.is_edited,
           }));
           setMessages(loadedMessages);
         } else {
-          // No history found, show welcome message
           setMessages([{
             role: "assistant",
             content: "Namaste! I'm your Krishi Saathi AI assistant. How can I help you with your farming today?",
@@ -63,7 +65,6 @@ export default function ChatbotPage() {
         }
       } catch (error) {
         console.error('Error loading history:', error);
-        // Show welcome message on error
         setMessages([{
           role: "assistant",
           content: "Namaste! I'm your Krishi Saathi AI assistant. How can I help you with your farming today?",
@@ -73,7 +74,6 @@ export default function ChatbotPage() {
         setIsLoadingHistory(false);
       }
     };
-
     loadHistory();
   }, [sessionId]);
 
@@ -86,55 +86,33 @@ export default function ChatbotPage() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
-
-    const userMessage = {
-      role: "user",
-      content: input,
-      timestamp: new Date(),
-    };
-
+    const userMessage = { role: "user", content: input, timestamp: new Date() };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsTyping(true);
-
     try {
-      const data = await sendChatMessage({
-        session_id: sessionId,
-        message: userMessage.content,
-      });
-
-      const aiMessage = {
+      const data = await sendChatMessage({ session_id: sessionId, message: userMessage.content });
+      setMessages((prev) => [...prev, {
+        id: data.message_id,
         role: "assistant",
         content: data.response,
         timestamp: new Date(data.timestamp),
-      };
-
-      setMessages((prev) => [...prev, aiMessage]);
+      }]);
     } catch (error) {
-
       if (error?.response?.status === 403) {
         const d = error.response.data;
         setUpgradeModal({ open: true, used: d?.used ?? 10, limit: d?.limit ?? 10 });
         setIsTyping(false);
         return;
       }
-
-      console.error('Chat error:', error);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content: "Sorry, something went wrong. Please try again.",
-          timestamp: new Date(),
-        },
-      ]);
+      setMessages((prev) => [...prev, {
+        role: "assistant",
+        content: "Sorry, something went wrong. Please try again.",
+        timestamp: new Date(),
+      }]);
     } finally {
       setIsTyping(false);
     }
-  };
-
-  const handleSuggestedQuestion = (question) => {
-    setInput(question);
   };
 
   const handleKeyPress = (e) => {
@@ -145,20 +123,64 @@ export default function ChatbotPage() {
   };
 
   const handleNewChat = () => {
-    // Generate new session ID
     const newId = uuidv4();
     localStorage.setItem('chatbot_session_id', newId);
-    // Reload page to start fresh
-    window.location.reload();
+    setSessionId(newId);
+    setMessages([{
+      role: "assistant",
+      content: "Namaste! I'm your Krishi Saathi AI assistant. How can I help you with your farming today?",
+      timestamp: new Date()
+    }]);
+  };
+
+  // Edit handlers
+  const handleEditStart = (message) => {
+    setEditingMessageId(message.id);
+    setEditingContent(message.content);
+  };
+
+  const handleEditCancel = () => {
+    setEditingMessageId(null);
+    setEditingContent("");
+  };
+
+  const handleEditSave = async (message) => {
+    if (!editingContent.trim()) return;
+    try {
+      await editMessage(message.id, editingContent);
+
+      // Remove this message and everything after it
+      const msgIndex = messages.findIndex(m => m.id === message.id);
+      const trimmed = messages.slice(0, msgIndex);
+
+      setEditingMessageId(null);
+      setEditingContent("");
+
+      // Add edited message and re-send to AI
+      const editedMessage = { ...message, content: editingContent, is_edited: true };
+      setMessages([...trimmed, editedMessage]);
+      setIsTyping(true);
+
+      const data = await sendChatMessage({ session_id: sessionId, message: editingContent });
+      setMessages(prev => [...prev, {
+        id: data.message_id,
+        role: "assistant",
+        content: data.response,
+        timestamp: new Date(data.timestamp),
+      }]);
+    } catch (error) {
+      console.error('Error editing message:', error);
+    } finally {
+      setIsTyping(false);
+    }
   };
 
   return (
-    <DashboardLayout>
-      <div className="h-[calc(100vh-8rem)] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between py-3 px-1 border-b border-border bg-background sticky top-0 z-10">
+    <DashboardLayout noPadding>
+      <div className="h-full flex flex-col overflow-hidden p-4 sm:p-6 lg:p-8">
 
-          {/* Left Title */}
+        {/* Header */}
+        <div className="flex items-center justify-between py-3 px-1 border-b border-border bg-background flex-shrink-0">
           <div className="flex flex-col justify-center">
             <h1 className="text-3xl sm:text-4xl font-display font-bold text-foreground leading-tight">
               AI Assistant
@@ -167,11 +189,13 @@ export default function ChatbotPage() {
               Ask me anything about farming, crops, diseases, or market prices.
             </p>
           </div>
-
-          {/* Right Buttons */}
           <div className="flex items-center gap-2">
             <Button
-              onClick={() => setShowHistory(!showHistory)}
+              onClick={() => {
+                const next = !showHistory;
+                setShowHistory(next);
+                localStorage.setItem('showHistory', next);
+              }}
               variant="outline"
               size="sm"
               className="flex items-center gap-2"
@@ -179,35 +203,39 @@ export default function ChatbotPage() {
               <History className="w-4 h-4" />
               {showHistory ? "Hide" : "Show"} History
             </Button>
-
-            <Button
-              onClick={handleNewChat}
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2"
-            >
+            <Button onClick={handleNewChat} variant="outline" size="sm" className="flex items-center gap-2">
               <Bot className="w-4 h-4" />
               New Chat
             </Button>
           </div>
         </div>
 
-        <div className="flex-1 grid lg:grid-cols-4 gap-6 min-h-0">
-          {/* History Sidebar (conditionally rendered) */}
+        {/* Body grid */}
+        <div className="flex-1 grid lg:grid-cols-4 gap-6 min-h-0 overflow-hidden pt-4">
+
+          {/* History Sidebar */}
           {showHistory && (
-            <div className="lg:col-span-1">
-              <ChatHistory 
+            <div className="lg:col-span-1 overflow-y-auto">
+              <ChatHistory
                 currentSessionId={sessionId}
                 onSelectConversation={(id) => {
                   localStorage.setItem('chatbot_session_id', id);
-                  window.location.reload();
+                  setSessionId(id);
+                }}
+                onNewChat={(id) => {
+                  setSessionId(id);
+                  setMessages([{
+                    role: "assistant",
+                    content: "Namaste! I'm your Krishi Saathi AI assistant. How can I help you with your farming today?",
+                    timestamp: new Date()
+                  }]);
                 }}
               />
             </div>
           )}
 
-          {/* Chat Area */}
-          <Card className={`${showHistory ? 'lg:col-span-2' : 'lg:col-span-3'} flex flex-col`}>
+          {/* Chat Card */}
+          <Card className={`${showHistory ? 'lg:col-span-2' : 'lg:col-span-3'} flex flex-col h-full min-h-0 overflow-hidden`}>
             <CardHeader className="border-b border-border flex-shrink-0">
               <CardTitle className="flex items-center gap-2">
                 <div className="w-10 h-10 rounded-full bg-gradient-primary flex items-center justify-center">
@@ -221,7 +249,7 @@ export default function ChatbotPage() {
             </CardHeader>
 
             {/* Messages */}
-            <CardContent className="flex-1 overflow-y-auto p-6 space-y-4" style={{ minHeight: 0 }}>
+            <CardContent className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
               {isLoadingHistory ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center space-y-3">
@@ -232,47 +260,58 @@ export default function ChatbotPage() {
               ) : (
                 <>
                   {messages.map((message, index) => (
-                    <div
-                      key={index}
-                      className={`flex gap-3 ${
-                        message.role === "user" ? "flex-row-reverse" : "flex-row"
-                      }`}
-                    >
-                      <div
-                        className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          message.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {message.role === "user" ? (
-                          <User className="w-4 h-4" />
-                        ) : (
-                          <Bot className="w-4 h-4" />
-                        )}
+                    <div key={index} className={`flex gap-3 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}>
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}>
+                        {message.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                       </div>
-                      <div
-                        className={`flex-1 max-w-[80%] ${
-                          message.role === "user" ? "items-end" : "items-start"
-                        }`}
-                      >
-                        <div
-                          className={`rounded-2xl p-4 ${
-                            message.role === "user"
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-foreground"
-                          }`}
-                        >
-                          <p className="text-sm leading-relaxed whitespace-pre-line">
-                            {message.content}
+
+                      <div className={`flex-1 max-w-[80%] flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}>
+
+                        {/* Edit mode */}
+                        {editingMessageId === message.id ? (
+                          <div className="w-full space-y-2">
+                            <textarea
+                              value={editingContent}
+                              onChange={(e) => setEditingContent(e.target.value)}
+                              className="w-full p-3 rounded-xl border border-border bg-background text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+                              rows={3}
+                              autoFocus
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <Button size="sm" variant="ghost" onClick={handleEditCancel}>
+                                <XIcon className="w-3.5 h-3.5 mr-1" /> Cancel
+                              </Button>
+                              <Button size="sm" onClick={() => handleEditSave(message)}>
+                                <Check className="w-3.5 h-3.5 mr-1" /> Save & Resend
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          // Normal message
+                          <div className="group relative">
+                            <div className={`rounded-2xl p-4 ${message.role === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"}`}>
+                              <p className="text-sm leading-relaxed whitespace-pre-line">{message.content}</p>
+                            </div>
+                            {/* Edit button — only for user messages that have an id */}
+                            {message.role === "user" && message.id && (
+                              <button
+                                onClick={() => handleEditStart(message)}
+                                className="absolute -left-8 top-3 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-md hover:bg-muted"
+                              >
+                                <Pencil className="w-3.5 h-3.5 text-muted-foreground" />
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-1 mt-1 px-4">
+                          <p className="text-xs text-muted-foreground">
+                            {message.timestamp.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
+                          {message.is_edited && (
+                            <p className="text-xs text-muted-foreground">(edited)</p>
+                          )}
                         </div>
-                        <p className="text-xs text-muted-foreground mt-1 px-4">
-                          {message.timestamp.toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit"
-                          })}
-                        </p>
                       </div>
                     </div>
                   ))}
@@ -296,7 +335,7 @@ export default function ChatbotPage() {
               )}
             </CardContent>
 
-            {/* Input Area */}
+            {/* Input */}
             <div className="p-4 border-t border-border flex-shrink-0">
               <div className="flex gap-2">
                 <Input
@@ -318,9 +357,8 @@ export default function ChatbotPage() {
             </div>
           </Card>
 
-          {/* Sidebar */}
-          <div className={`${showHistory ? 'lg:col-span-1' : 'lg:col-span-1'} space-y-4`}>
-            {/* Suggested Questions */}
+          {/* Right Sidebar */}
+          <div className="lg:col-span-1 space-y-4 overflow-y-auto">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base flex items-center gap-2">
@@ -330,47 +368,33 @@ export default function ChatbotPage() {
               </CardHeader>
               <CardContent className="space-y-2">
                 {suggestedQuestions.map((question, index) => (
-                  <button
-                    key={index}
-                    onClick={() => handleSuggestedQuestion(question)}
+                  <button key={index} onClick={() => setInput(question)}
                     className="w-full text-left p-3 rounded-lg bg-muted/50 hover:bg-muted text-sm text-foreground transition-smooth"
-                    disabled={isLoadingHistory}
-                  >
+                    disabled={isLoadingHistory}>
                     {question}
                   </button>
                 ))}
               </CardContent>
             </Card>
 
-            {/* Tips Card */}
             <Card className="bg-gradient-hero border-primary/20">
               <CardContent className="p-6 space-y-3">
                 <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
                   <Leaf className="w-6 h-6 text-primary" />
                 </div>
-                <h3 className="font-display font-semibold text-foreground">
-                  Get Better Answers
-                </h3>
+                <h3 className="font-display font-semibold text-foreground">Get Better Answers</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   Ask specific questions about your crop type, location, and current challenges for more accurate advice.
                 </p>
               </CardContent>
             </Card>
 
-            {/* Features */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">What I Can Help With</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2">
-                {[
-                  "Crop disease identification",
-                  "Irrigation guidance",
-                  "Fertilization advice",
-                  "Market price insights",
-                  "Pest control tips",
-                  "Planting schedules"
-                ].map((feature, index) => (
+                {["Crop disease identification", "Irrigation guidance", "Fertilization advice", "Market price insights", "Pest control tips", "Planting schedules"].map((feature, index) => (
                   <div key={index} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-primary" />
                     <p className="text-sm text-muted-foreground">{feature}</p>
@@ -382,7 +406,6 @@ export default function ChatbotPage() {
         </div>
       </div>
 
-      {/* Upgrade Modal */}
       <UpgradeModal
         open={upgradeModal.open}
         onClose={() => setUpgradeModal((s) => ({ ...s, open: false }))}
@@ -390,7 +413,6 @@ export default function ChatbotPage() {
         used={upgradeModal.used}
         limit={upgradeModal.limit}
       />
-      
     </DashboardLayout>
   );
 }
