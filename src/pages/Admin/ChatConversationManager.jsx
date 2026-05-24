@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search, RefreshCw, MessageSquare, MessagesSquare,
   Trash2, Eye, User, Clock3, Pencil, AlertTriangle,
@@ -31,12 +32,12 @@ const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
 );
 
 export default function ChatConversationManager() {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState([]);
   const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
   const [stats, setStats] = useState({
     totalConversations: 0,
     totalMessages: 0,
-    deletedConversations: 0,
   });
 
   const [loading, setLoading] = useState(true);
@@ -93,7 +94,7 @@ export default function ChatConversationManager() {
       const detail = await getChatConversationDetail(conversation.id || conversation.pk);
       setSelectedConversation(detail);
     } catch {
-      setError("Failed to load conversation detail.");
+      toast({ title: "Failed to load conversation detail.", variant: "destructive" });
     } finally {
       setDetailLoading(false);
     }
@@ -103,12 +104,13 @@ export default function ChatConversationManager() {
     if (!window.confirm("Permanently delete this conversation?")) return;
     try {
       await deleteChatConversation(id);
+      toast({ title: "Conversation deleted!" }); 
       if (selectedConversation && (selectedConversation.id === id || selectedConversation.pk === id)) {
         setSelectedConversation(null);
       }
       loadConversations();
     } catch {
-      setError("Failed to delete conversation.");
+      toast({ title: "Failed to delete conversation.", variant: "destructive" })
     }
   };
 
@@ -135,10 +137,9 @@ export default function ChatConversationManager() {
       </div>
 
       {/* Updated stat cards — includes deleted count */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <StatCard title="Total Conversations" value={stats.totalConversations} icon={MessagesSquare} color="text-primary" />
         <StatCard title="Total Messages" value={stats.totalMessages} icon={MessageSquare} color="text-chart-4" />
-        <StatCard title="Deleted (Soft)" value={stats.deletedConversations} icon={Trash2} color="text-destructive" />
         <StatCard title="Linked Users" value={pageStats.withUsers} icon={User} color="text-success" />
       </div>
 

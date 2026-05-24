@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   RefreshCw,
@@ -66,6 +67,7 @@ const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
 );
 
 export default function ScanResultManager() {
+  const { toast } = useToast();
   const [scans, setScans] = useState([]);
   const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
   const [summary, setSummary] = useState({ total: 0 });
@@ -131,7 +133,7 @@ export default function ScanResultManager() {
       const detail = await getScanResultDetail(scan.id || scan.pk);
       setSelectedScan(detail);
     } catch {
-      setError("Failed to load scan detail.");
+      toast({ title: "Failed to load scan detail.", variant: "destructive" });
     } finally {
       setDetailLoading(false);
     }
@@ -141,12 +143,13 @@ export default function ScanResultManager() {
     if (!window.confirm("Delete this scan result?")) return;
     try {
       await deleteScanResult(id);
+      toast({ title: "Scan result deleted!" });
       if (selectedScan && (selectedScan.id === id || selectedScan.pk === id)) {
         setSelectedScan(null);
       }
       loadScans();
     } catch {
-      setError("Failed to delete scan result.");
+      toast({ title: "Failed to delete scan result.", variant: "destructive" });
     }
   };
 

@@ -1,5 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   RefreshCw,
@@ -41,6 +42,7 @@ const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
 );
 
 export default function SubscriptionManager() {
+  const { toast } = useToast();
   const [subscriptions, setSubscriptions] = useState([]);
   const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
   const [summary, setSummary] = useState({ total: 0, active: 0, inactive: 0 });
@@ -153,14 +155,11 @@ export default function SubscriptionManager() {
     setActionLoading(true);
     try {
       await updateSubscription(editingSub.id || editingSub.pk, form);
+      toast({ title: "Subscription updated successfully!" });
       closeEdit();
       loadSubscriptions();
     } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Failed to update subscription."
-      );
+      toast({ title: "Failed to update subscription.", variant: "destructive" }); 
     } finally {
       setActionLoading(false);
     }
@@ -170,9 +169,10 @@ export default function SubscriptionManager() {
     if (!window.confirm("Delete this subscription?")) return;
     try {
       await deleteSubscription(id);
+      toast({ title: "Subscription deleted!" }); 
       loadSubscriptions();
     } catch {
-      setError("Failed to delete subscription.");
+      toast({ title: "Failed to delete subscription.", variant: "destructive" }); 
     }
   };
 

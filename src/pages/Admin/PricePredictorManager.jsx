@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   RefreshCw,
@@ -60,6 +61,7 @@ const tooltipStyle = {
 };
 
 export default function PricePredictorManager() {
+  const { toast } = useToast();
   const [products, setProducts] = useState([]);
   const [productMeta, setProductMeta] = useState({ count: 0, next: null, previous: null });
   const [history, setHistory] = useState([]);
@@ -138,8 +140,9 @@ export default function PricePredictorManager() {
     try {
       await fetchAdminMarketPrices();
       await Promise.all([loadProducts(productPage), loadHistory(historyPage), loadStats()]);
+      toast({ title: "Market prices updated successfully!" });
     } catch {
-      setError("Failed to fetch latest market prices.");
+      toast({ title: "Failed to fetch latest market prices.", variant: "destructive" });
     } finally {
       setFetching(false);
     }

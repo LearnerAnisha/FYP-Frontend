@@ -31,7 +31,7 @@ import ProtectedAdminRoute from "@/pages/Admin/ProtectedAdminRoute";
 import SubscriptionManager from "@/pages/Admin/SubscriptionManager";
 
 // Components
-import { Toaster } from "@/components/ui/sonner";
+import { Toaster } from "@/components/ui/toaster";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function App() {

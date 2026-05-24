@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import {
   Search,
   RefreshCw,
@@ -56,6 +57,7 @@ const StatCard = ({ title, value, icon: Icon, color = "text-primary" }) => (
 );
 
 export default function UserManagement() {
+  const { toast } = useToast();
   const [users, setUsers] = useState([]);
   const [meta, setMeta] = useState({ count: 0, next: null, previous: null });
   const [loading, setLoading] = useState(true);
@@ -159,17 +161,15 @@ export default function UserManagement() {
         const payload = { ...form };
         if (!payload.password) delete payload.password;
         await updateUser(editingUser.id, payload);
+        toast({ title: "User updated successfully!" });
       } else {
         await createUser(form);
+        toast({ title: "User created successfully!" }); 
       }
       closeModal();
       loadUsers();
-    } catch (err) {
-      setError(
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Failed to save user."
-      );
+    } catch {
+      toast({ title: "Failed to save user.", variant: "destructive" })
     } finally {
       setActionLoading(false);
     }
@@ -179,27 +179,30 @@ export default function UserManagement() {
     if (!window.confirm("Delete this user?")) return;
     try {
       await deleteUser(id);
+      toast({ title: "User deleted!" });   
       loadUsers();
     } catch {
-      setError("Failed to delete user.");
+      toast({ title: "Failed to delete user.", variant: "destructive" });
     }
   };
 
   const handleToggle = async (id) => {
     try {
       await toggleUserStatus(id);
+      toast({ title: "User status updated!" }); 
       loadUsers();
     } catch {
-      setError("Failed to update user status.");
+      toast({ title: "Failed to update status.", variant: "destructive" });
     }
   };
 
   const handleVerify = async (id) => {
     try {
       await verifyUser(id);
+      toast({ title: "User verified!" }); 
       loadUsers();
     } catch {
-      setError("Failed to verify user.");
+      toast({ title: "Failed to verify user.", variant: "destructive" });
     }
   };
 
