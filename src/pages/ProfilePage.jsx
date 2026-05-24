@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { fetchProfile, updateProfile, changePassword, deleteAccount, exportData } from "@/api/profile";
-import { handleUpgradeWithEsewa } from "@/api/payment";
+import { handleUpgradeWithEsewa, cancelSubscription } from "@/api/payment";
 import { getUserCoordinates } from "@/utils/useGeolocation";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 const PLAN_PRICES = {
-  pro: { monthly: 100, yearly: 80 },
+  pro: { monthly: 10, yearly: 80 },
 };
 
 const plans = [
@@ -51,7 +52,7 @@ const plans = [
     id: "pro",
     name: "Pro",
     icon: Zap,
-    price: { monthly: 100, yearly: 80 },
+    price: { monthly: 10, yearly: 80 },
     description: "For active farmers who need real-time insights.",
     highlight: true,
     badge: "Most Popular",
@@ -94,6 +95,9 @@ export default function ProfilePage() {
   const [isYearly, setIsYearly] = useState(false);
   const [currentPlan, setCurrentPlan] = useState(MOCK_CURRENT_PLAN);
   const [loadingPlan, setLoadingPlan] = useState(null);
+
+  const [searchParams] = useSearchParams();
+  const defaultTab = searchParams.get("tab") || "profile";
 
   useEffect(() => {
     async function loadProfile() {
@@ -240,11 +244,11 @@ export default function ProfilePage() {
 
   const handleCancelPlan = async () => {
     try {
-      await new Promise((r) => setTimeout(r, 800));
+      await cancelSubscription();
       setCurrentPlan({ id: "free", renewDate: null, billingCycle: null });
-      toast.success("Subscription cancelled. Access retained until billing period ends.");
+      toast.success("Subscription cancelled.");
     } catch {
-      toast.error("Failed to cancel subscription. Please contact support.");
+      toast.error("Failed to cancel. Please try again.");
     }
   };
 
@@ -352,7 +356,7 @@ export default function ProfilePage() {
         </div>
 
         {/* TABS */}
-        <Tabs defaultValue="general" className="space-y-6">
+        <Tabs defaultValue={defaultTab}>
           <TabsList className="flex flex-wrap h-auto gap-1">
             <TabsTrigger value="general">General</TabsTrigger>
             <TabsTrigger value="security">Security</TabsTrigger>

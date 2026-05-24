@@ -16,6 +16,7 @@ import PricePredictor from "@/pages/PricePredictor";
 import ChatbotPage from "@/pages/ChatbotPage";
 import ProfilePage from "@/pages/ProfilePage";
 import PricingPage from "@/pages/PricingPage";
+import PaymentCallback from "@/pages/PaymentCallback";
 
 // Admin Pages
 import AdminLogin from "@/pages/Admin/AdminLogin";
@@ -45,7 +46,8 @@ function App() {
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />  {/* NEW */}
           <Route path="/reset-password" element={<ResetPassword />} />    {/* NEW */}
-
+          <Route path="/payment/callback" element={<PaymentCallback />} />
+          
           {/* PROTECTED USER ROUTES */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/disease-detection" element={<ProtectedRoute><DiseaseDetection /></ProtectedRoute>} />

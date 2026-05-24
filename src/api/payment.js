@@ -3,7 +3,7 @@ import apiClient from "./client";
 export async function initiatePayment({
   amount,
   taxAmount = 0,
-  serviceCharge  = 0,
+  serviceCharge = 0,
   deliveryCharge = 0,
 }) {
   const response = await apiClient.post("/api/payment/initiate/", {
@@ -30,15 +30,15 @@ export function redirectToEsewa(esewaUrl, esewaPayload) {
   const existing = document.getElementById("__esewa_form__");
   if (existing) existing.remove();
 
-  const form    = document.createElement("form");
-  form.id       = "__esewa_form__";
-  form.method   = "POST";
-  form.action   = esewaUrl;
+  const form = document.createElement("form");
+  form.id = "__esewa_form__";
+  form.method = "POST";
+  form.action = esewaUrl;
 
   Object.entries(esewaPayload).forEach(([key, value]) => {
     const input = document.createElement("input");
-    input.type  = "hidden";
-    input.name  = key;
+    input.type = "hidden";
+    input.name = key;
     input.value = String(value);
     form.appendChild(input);
   });
@@ -49,16 +49,26 @@ export function redirectToEsewa(esewaUrl, esewaPayload) {
 
 export async function handleUpgradeWithEsewa({
   amount,
-  taxAmount      = 0,
-  serviceCharge  = 0,
+  taxAmount = 0,
+  serviceCharge = 0,
   deliveryCharge = 0,
 }) {
-  const data = await initiatePayment({ amount, taxAmount, serviceCharge, deliveryCharge });
+  const data = await initiatePayment({
+    amount,
+    taxAmount,
+    serviceCharge,
+    deliveryCharge,
+  });
 
   // Save so PaymentCallback can poll status after eSewa redirects back
-  sessionStorage.setItem("esewa_payment_id",       String(data.payment_id));
-  sessionStorage.setItem("esewa_transaction_uuid",  data.transaction_uuid);
+  sessionStorage.setItem("esewa_payment_id", String(data.payment_id));
+  sessionStorage.setItem("esewa_transaction_uuid", data.transaction_uuid);
 
   redirectToEsewa(data.esewa_url, data.esewa_payload);
   // ← Browser leaves the page here
+}
+
+export async function cancelSubscription() {
+  const response = await apiClient.post("/api/payment/cancel/");
+  return response.data;
 }

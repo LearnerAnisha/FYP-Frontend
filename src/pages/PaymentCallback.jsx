@@ -39,7 +39,7 @@ export default function PaymentCallback() {
         if (data.status === "COMPLETE") {
           setUiState("success");
           setTimeout(() => {
-            window.location.href = "/dashboard/profile?tab=subscription";
+            window.location.href = "/profile";
           }, 1500);
           sessionStorage.removeItem("esewa_payment_id");
           sessionStorage.removeItem("esewa_transaction_uuid");
@@ -154,7 +154,7 @@ function SuccessState({ payment, navigate }) {
       )}
 
       <button
-        onClick={() => navigate("/dashboard/profile?tab=subscription")}
+        onClick={() => navigate("/profile")}
         className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 px-6 font-semibold text-sm hover:opacity-90 transition-opacity"
       >
         View My Subscription <ArrowRight className="w-4 h-4" />
@@ -182,7 +182,7 @@ function FailedState({ navigate }) {
 
       <div className="w-full space-y-3">
         <button
-          onClick={() => navigate("/dashboard/profile?tab=subscription")}
+          onClick={() => navigate("/profile")}
           className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground rounded-xl py-3 px-6 font-semibold text-sm hover:opacity-90 transition-opacity"
         >
           <RefreshCw className="w-4 h-4" /> Try Again
