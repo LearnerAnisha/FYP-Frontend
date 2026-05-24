@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { fetchProfile, updateProfile, changePassword, deleteAccount, exportData } from "@/api/profile";
 import { handleUpgradeWithEsewa } from "@/api/payment";
+import { getUserCoordinates } from "@/utils/useGeolocation";
 import { DashboardLayout } from "@/components/DashboardLayout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -115,7 +116,14 @@ export default function ProfilePage() {
           cropTypes: data.farmer_profile?.crop_types || "",
           language: data.farmer_profile?.language || "nepali",
           bio: data.farmer_profile?.bio || "",
+          location: data.farmer_profile?.location || "", 
         }));
+        if (!data.farmer_profile?.location) {
+          getUserCoordinates().then((coords) => {
+            const city = coords.city || "Kathmandu";
+            setProfileData((prev) => ({ ...prev, location: city }));
+          });
+        }
         if (data.subscription && data.subscription.is_active) {
           setCurrentPlan({
             id: data.subscription.plan.toLowerCase(),
@@ -128,6 +136,8 @@ export default function ProfilePage() {
         console.error("Profile load error:", err);
         toast.error("Failed to load profile");
       }
+
+      
     }
     loadProfile();
   }, []);

@@ -15,7 +15,8 @@ import {
   Calendar,
   AlertCircle,
   CheckCircle2,
-  Sprout
+  Sprout,
+  MapPin,
 } from "lucide-react";
 import { UpgradeModal } from "@/components/UpgradeModal";
 
@@ -27,16 +28,22 @@ export default function WeatherIrrigation() {
   const [loadingWeather, setLoadingWeather] = useState(true);
   const [weatherError, setWeatherError] = useState(null);
   const [loadingRecommendation, setLoadingRecommendation] = useState(false);
-  const [recommendationError,setRecommendationError] = useState(null);
+  const [recommendationError, setRecommendationError] = useState(null);
   const [upgradeModal, setUpgradeModal] = useState({ open: false, used: 0, limit: 10 });
 
   useEffect(() => {
+    // Clear stale null cache from before this fix
     const cached = sessionStorage.getItem("weatherData");
-
     if (cached) {
-      setWeatherData(JSON.parse(cached));
-      setLoadingWeather(false);
-      return;
+      const parsed = JSON.parse(cached);
+      // If old cache was null or missing isDefault field, refetch
+      if (!parsed || parsed.isDefault === undefined || (!parsed.isDefault && !parsed.city)) {
+        sessionStorage.removeItem("weatherData");
+      } else {
+        setWeatherData(parsed);
+        setLoadingWeather(false);
+        return;
+      }
     }
 
     async function loadWeather() {
@@ -57,31 +64,31 @@ export default function WeatherIrrigation() {
 
   const weatherStats = weatherData
     ? [
-      {
-        label: "Temperature",
-        value: `${weatherData.current.temperature}°C`,
-        icon: Thermometer,
-        color: "text-chart-5",
-      },
-      {
-        label: "Humidity",
-        value: `${weatherData.current.humidity}%`,
-        icon: Droplets,
-        color: "text-chart-4",
-      },
-      {
-        label: "Rainfall",
-        value: `${weatherData.current.rainfall}mm`,
-        icon: CloudRain,
-        color: "text-primary",
-      },
-      {
-        label: "Wind Speed",
-        value: `${weatherData.current.wind_speed} km/h`,
-        icon: Wind,
-        color: "text-chart-2",
-      },
-    ]
+        {
+          label: "Temperature",
+          value: `${weatherData.current.temperature}°C`,
+          icon: Thermometer,
+          color: "text-chart-5",
+        },
+        {
+          label: "Humidity",
+          value: `${weatherData.current.humidity}%`,
+          icon: Droplets,
+          color: "text-chart-4",
+        },
+        {
+          label: "Rainfall",
+          value: `${weatherData.current.rainfall}mm`,
+          icon: CloudRain,
+          color: "text-primary",
+        },
+        {
+          label: "Wind Speed",
+          value: `${weatherData.current.wind_speed} km/h`,
+          icon: Wind,
+          color: "text-chart-2",
+        },
+      ]
     : [];
 
   const getWeatherIcon = (condition) => {
@@ -89,6 +96,11 @@ export default function WeatherIrrigation() {
     if (condition.includes("Rain")) return CloudRain;
     return Cloud;
   };
+
+  // Location label shown in card header
+  const locationLabel = weatherData?.isDefault
+    ? weatherData.defaultCity
+    : weatherData?.city ?? "your location";
 
   if (loadingWeather) {
     return (
@@ -112,20 +124,18 @@ export default function WeatherIrrigation() {
       setRecommendationError(null);
 
       const data = await fetchCropSuggestion({
-        location: "Kathmandu", // for now
+        location: weatherData?.owmCity ?? "Kathmandu",
         cropName: cropType,
         growthStage: growthStage,
       });
 
       setRecommendations(data.suggestion);
     } catch (error) {
-
       if (error?.response?.status === 403) {
         const d = error.response.data;
         setUpgradeModal({ open: true, used: d?.used ?? 10, limit: d?.limit ?? 10 });
         return;
       }
-
       setRecommendationError("Failed to generate recommendation");
     } finally {
       setLoadingRecommendation(false);
@@ -144,6 +154,44 @@ export default function WeatherIrrigation() {
             Get personalized irrigation and fertilization advice based on real-time weather data.
           </p>
         </div>
+
+        {/* Default city notice banner — shown only when location is denied */}
+        {weatherData?.isDefault && (
+          <div className="flex items-start gap-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm">
+            <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0 text-warning" />
+            <div className="flex-1">
+              <p className="text-foreground">
+                <span className="font-semibold">Location access was not granted.</span> Showing
+                weather data for the default city:{" "}
+                <span className="font-semibold text-warning">{weatherData.defaultCity}</span>.
+              </p>
+              <p className="text-muted-foreground mt-1">
+                Allow location access to see weather data for your actual location.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 border-warning/50 text-warning hover:bg-warning/10"
+                onClick={() => {
+                  navigator.geolocation.getCurrentPosition(
+                    () => {
+                      sessionStorage.removeItem("weatherData");
+                      window.location.reload();
+                    },
+                    () => {
+                      alert(
+                        "Location still blocked. Please allow location access from your browser's address bar (the lock/info icon), then click the button again."
+                      );
+                    }
+                  );
+                }}
+              >
+                <MapPin className="w-3.5 h-3.5 mr-2" />
+                Allow Location & Reload
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Crop Selection */}
         <Card>
@@ -211,7 +259,6 @@ export default function WeatherIrrigation() {
           </CardContent>
         </Card>
 
-
         {/* Current Weather */}
         <Card>
           <CardHeader>
@@ -219,7 +266,14 @@ export default function WeatherIrrigation() {
               <CloudRain className="w-5 h-5 text-primary" />
               Current Weather
             </CardTitle>
-            <CardDescription>Live weather data for Kathmandu</CardDescription>
+            <CardDescription className="flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5" />
+              Live weather data for{" "}
+              <span className="font-medium text-foreground ml-1">{locationLabel}</span>
+              {weatherData?.isDefault && (
+                <span className="ml-1 text-warning font-medium">(Default City)</span>
+              )}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
@@ -394,7 +448,6 @@ export default function WeatherIrrigation() {
         used={upgradeModal.used}
         limit={upgradeModal.limit}
       />
-      
     </DashboardLayout>
   );
 }
