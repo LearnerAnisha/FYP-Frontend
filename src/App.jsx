@@ -32,6 +32,7 @@ import SubscriptionManager from "@/pages/Admin/SubscriptionManager";
 
 // Components
 import { Toaster } from "@/components/ui/toaster";
+import { Toaster as SonnerToaster } from "sonner";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 function App() {
@@ -85,6 +86,7 @@ function App() {
         </Routes>
       </BrowserRouter>
       <Toaster />
+      <SonnerToaster richColors position="top-right" />
     </div>
   );
 }

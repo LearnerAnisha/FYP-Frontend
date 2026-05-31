@@ -54,8 +54,8 @@ const plans = [
 
 const comparisonRows = [
   { label: "Disease Detection", values: ["5 / month", "Unlimited"] },
-  { label: "Weather & Irrigation", values: ["Basic tips", "Advanced analytics"] },
-  { label: "Price Predictions", values: ["—", "✓"] },
+  { label: "Weather & Irrigation", values: ["10 / month", "Unlimited"] },
+  { label: "Price Predictions", values: ["5 / month", "Unlimited"] },
   { label: "AI Chatbot", values: ["10 msgs/day", "Unlimited"] },
 ];
 

@@ -37,12 +37,23 @@ export default function AuthPage() {
   const extractErrorMessage = (error) => {
     const data = error.response?.data;
     if (!data) return "Something went wrong. Please try again.";
+
     if (data.errors) {
       const firstField = Object.keys(data.errors)[0];
-      return data.errors[firstField][0];
+      const val = data.errors[firstField];
+      return Array.isArray(val) ? val[0] : val;
     }
+
     if (data.message) return data.message;
-    return "Invalid request.";
+
+    if (data.non_field_errors) return data.non_field_errors[0];
+
+    const firstKey = Object.keys(data)[0];
+    if (firstKey && Array.isArray(data[firstKey])) {
+      return data[firstKey][0];
+    }
+
+    return "Incorrect email/phone or password.";
   };
 
   const handleSignIn = async (e) => {
